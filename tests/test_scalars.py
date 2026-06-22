@@ -11,6 +11,7 @@ import pyarrow as pa
 import pytest
 
 from tests.harness import fasttext_available, spacy_model_available
+from vgi_nlp import pipelines
 from vgi_nlp.pipelines import ModelNotAvailableError
 from vgi_nlp.scalars import (
     DetectLang,
@@ -28,6 +29,25 @@ from vgi_nlp.scalars import (
 
 needs_fasttext = pytest.mark.skipif(not fasttext_available(), reason="fastText lid.176 model not installed")
 needs_spacy = pytest.mark.skipif(not spacy_model_available(), reason="en_core_web_sm not installed")
+
+
+# --- startup warm-up (best-effort, never fatal) -----------------------------
+
+
+class TestWarmUp:
+    def test_warm_up_is_idempotent_and_never_raises(self) -> None:
+        # Called at worker spawn to move the model-load cost off the first query.
+        # It must be best-effort: safe to call repeatedly and never raise, even if
+        # a model is absent (the function that needs it raises its own error).
+        pipelines.warm_up()
+        pipelines.warm_up()
+
+    @needs_spacy
+    def test_warm_up_populates_spacy_cache(self) -> None:
+        # After warm-up, the default English pipeline is resolvable without a load.
+        pipelines.warm_up()
+        nlp = pipelines.load_spacy_by_name("en_core_web_sm")
+        assert nlp is pipelines.load_spacy_by_name("en_core_web_sm")
 
 
 # --- normalize (no model, always runs) -------------------------------------

@@ -120,7 +120,13 @@ FROM nlp.sentences((SELECT id, content FROM docs), id := 'id');
 
 ## Models
 
-The worker is lazy: nothing is loaded until the first row that needs it.
+Model loading is lazy: a pipeline is loaded the first time a row needs it (and
+cached for the life of the worker process). On startup the worker additionally
+*warms* the default English spaCy pipeline and the fastText language ID model, so
+the one-time load cost is paid at spawn rather than inside the first query — this
+keeps latency predictable and the end-to-end SQL suite deterministic. Warming is
+best-effort: a missing model never blocks startup (the function that needs it
+raises its own actionable error if actually called).
 
 - **spaCy pipelines** are loaded by language. The default is the small (`_sm`)
   model per language (`en` → `en_core_web_sm`). Install the ones you need:

@@ -36,9 +36,12 @@ First-use model requirements:
 
 from __future__ import annotations
 
+from typing import Any
+
 from vgi import Worker
 from vgi.catalog import Catalog, Schema
 
+from vgi_nlp import pipelines
 from vgi_nlp.scalars import SCALAR_FUNCTIONS
 from vgi_nlp.tables import TABLE_FUNCTIONS
 
@@ -59,6 +62,19 @@ class NlpWorker(Worker):
     """Worker process hosting the classical-NLP catalog."""
 
     catalog = _NLP_CATALOG
+
+    def run(self, otel_config: Any = None) -> None:
+        """Warm the default models, then serve.
+
+        Loading spaCy/fastText is lazy, so without this the first query of every
+        ATTACH pays the ~1-2 s model-load cost inline -- a window in which a
+        worker-pool teardown SIGTERM (or a heavily-loaded host) can kill the run
+        mid-assertion and record a spurious E2E failure. Warming at spawn moves
+        that one-time cost ahead of any query, keeping the SQL suite deterministic
+        without changing a single output value. Best-effort; never fatal.
+        """
+        pipelines.warm_up()
+        super().run(otel_config=otel_config)
 
 
 def main() -> None:

@@ -22,6 +22,7 @@ deep library traceback.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import threading
 from functools import cache, lru_cache
@@ -277,6 +278,34 @@ def sentiment_label_from_score(score: float | None) -> str | None:
     if score <= -0.05:
         return "neg"
     return "neu"
+
+
+# ---------------------------------------------------------------------------
+# Startup warm-up
+# ---------------------------------------------------------------------------
+
+
+def warm_up() -> None:
+    """Load the default models once, eagerly, at worker startup.
+
+    Everything in this module is lazy by design, so the *first* query of every
+    ATTACH otherwise pays the spaCy/fastText load cost (~1-2 s) inline. Under the
+    end-to-end SQL suite that load happens while the test runner is mid-assertion
+    on the first file -- a long window in which a worker-pool teardown SIGTERM (or
+    a heavily-loaded host) can kill the run and record a spurious failure, making
+    the suite flaky even though every output is deterministic.
+
+    Warming here moves that one-time cost to process-spawn (before the runner
+    issues any query), so each per-file first query is fast and the vulnerable
+    window shrinks to near zero. It only populates the existing caches -- it never
+    changes any output. Best-effort: a missing model is not fatal (the relevant
+    function will raise its own actionable error if actually invoked), so a worker
+    that hosts, say, only the pure-Python ``normalize`` still starts cleanly.
+    """
+    with contextlib.suppress(Exception):
+        _load_spacy(_DEFAULT_SPACY_MODEL["en"])
+    with contextlib.suppress(Exception):
+        _fasttext()
 
 
 # ---------------------------------------------------------------------------
