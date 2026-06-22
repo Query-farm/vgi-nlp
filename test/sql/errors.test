@@ -1,0 +1,49 @@
+# name: test/sql/errors.test
+# group: [vgi_nlp]
+#
+# Error paths surface as clear, actionable DuckDB-side errors: unknown spaCy
+# model, unknown pinned language, bad id/text column, non-VARCHAR text column.
+
+require-env VGI_NLP_WORKER
+
+statement ok
+LOAD vgi;
+
+statement ok
+ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION '${VGI_NLP_WORKER}');
+
+statement ok
+CREATE TEMP TABLE docs AS SELECT 1 AS id, 'Apple Inc. hired Steve Jobs.' AS body;
+
+# Unknown spaCy model -> actionable "not installed" error.
+statement error
+SELECT * FROM nlp.entities((SELECT id, body FROM docs), id := 'id', model := 'no_such_model_xyz');
+----
+not installed
+
+# Unknown pinned language (no default pipeline) -> actionable error.
+statement error
+SELECT * FROM nlp.entities((SELECT id, body FROM docs), id := 'id', lang := 'xx');
+----
+No default spaCy pipeline
+
+# Unknown id column.
+statement error
+SELECT * FROM nlp.entities((SELECT id, body FROM docs), id := 'nope', lang := 'en');
+----
+id column
+
+# Unknown text column.
+statement error
+SELECT * FROM nlp.entities((SELECT id, body FROM docs), id := 'id', text := 'nope', lang := 'en');
+----
+text column
+
+# Non-VARCHAR text column is rejected at plan time.
+statement error
+SELECT * FROM nlp.entities((SELECT 1 AS id, 42 AS body), id := 'id', text := 'body', lang := 'en');
+----
+VARCHAR
+
+statement ok
+DETACH nlp;

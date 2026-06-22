@@ -43,8 +43,25 @@ streams a text column and explodes each row.
 
 Same family as [`vgi-sklearn`](https://github.com/query-farm/vgi-scikit-learn).
 
-- The **table-in-out** functions take the input relation as a `(SELECT ...)`
-  subquery; named arguments use DuckDB's `name := value` syntax.
+### Argument syntax: scalars are positional, table functions are named
+
+DuckDB **scalar** functions take **positional** arguments and resolve overloads
+by *arity* — the `name := value` named-argument syntax is a property of table
+functions and macros, *not* scalars. So the spaCy-backed cleaners expose their
+`lang` / `model` options as positional arity overloads (the same pattern
+[`vgi-translate`](https://github.com/query-farm/vgi-translate) uses for
+`translate(text, 'es')` vs `translate(text, 'es', 'en')`):
+
+```sql
+SELECT nlp.lemmatize(body)                      FROM reviews;  -- auto-detect per row
+SELECT nlp.lemmatize(body, 'en')                FROM reviews;  -- pin the language
+SELECT nlp.lemmatize(body, 'en', 'en_core_web_trf') FROM reviews;  -- pin the model
+```
+
+The **table-in-out** functions (`entities` / `tokens` / `sentences` /
+`noun_chunks`) *do* accept the `name := value` form:
+
+- The input relation is passed as a `(SELECT ...)` subquery (positional).
 - **`id := 'col'`** names a passthrough column, copied onto every emitted row so
   you can join the entities/tokens/sentences back to the source row they came
   from. Optional — omit it and no id is carried.
@@ -55,9 +72,10 @@ Same family as [`vgi-sklearn`](https://github.com/query-farm/vgi-scikit-learn).
   cost. Pin `lang` when the corpus is monolingual.
 - **`model := 'en_core_web_trf'`** overrides the spaCy pipeline (`_trf`
   transformer variants for accuracy, `_sm` for speed).
-- Pipelines are **loaded once and cached** in the persistent pooled worker
-  process — the cost VGI is built to amortize — and `nlp.pipe()` batches each
-  language. Tune the minibatch with the `VGI_NLP_BATCH_SIZE` env var.
+
+Pipelines are **loaded once and cached** in the persistent pooled worker
+process — the cost VGI is built to amortize — and `nlp.pipe()` batches each
+language. Tune the minibatch with the `VGI_NLP_BATCH_SIZE` env var.
 
 ## Function catalog
 
@@ -69,8 +87,8 @@ Same family as [`vgi-sklearn`](https://github.com/query-farm/vgi-scikit-learn).
 | `detect_lang_conf(text)` | `FLOAT` | confidence 0–1 of the detected language |
 | `sentiment(text)` | `FLOAT` | VADER compound score in [-1, 1] |
 | `sentiment_label(text)` | `VARCHAR` | `neg` / `neu` / `pos` |
-| `lemmatize(text [, lang, model])` | `VARCHAR` | tokens replaced by their lemma |
-| `strip_stopwords(text [, lang, model])` | `VARCHAR` | stop-words + punctuation removed |
+| `lemmatize(text [, lang [, model]])` | `VARCHAR` | tokens replaced by their lemma; `lang`/`model` are **positional** overloads |
+| `strip_stopwords(text [, lang [, model]])` | `VARCHAR` | stop-words + punctuation removed; `lang`/`model` are **positional** overloads |
 | `normalize(text)` | `VARCHAR` | Unicode NFKC + lowercase + whitespace collapse |
 
 ```sql
@@ -147,18 +165,31 @@ mkdir -p ~/.cache/vgi-nlp
 curl -L -o ~/.cache/vgi-nlp/lid.176.ftz \
     https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz
 
-# run the tests
-uv run pytest
+# run everything (unit + SQL end-to-end)
+make test
+
+# or individually:
+make test-unit      # pytest
+make test-sql       # end-to-end .test files via haybarn-unittest
+make models         # download the spaCy + fastText models
 
 # lint / type-check
 uv run ruff check .
 uv run mypy vgi_nlp
 ```
 
-The tests drive the real `bind → init → process` lifecycle in-process (fast,
-no worker subprocess) and, when models are present, an end-to-end pass through
-`vgi.client.Client`. Tests that need a model are skipped automatically when the
-model is not installed, so the suite is green on a bare checkout.
+Two test layers:
+
+- **Unit** (`tests/`, pytest) drive the real `bind → init → process` lifecycle
+  in-process (fast, no subprocess) plus an end-to-end pass through
+  `vgi.client.Client`. Tests that need a model are skipped automatically when it
+  is not installed, so the suite is green on a bare checkout.
+- **SQL end-to-end** (`test/sql/*.test`) run the worker as a real subprocess
+  under DuckDB's sqllogictest runner ([`haybarn-unittest`](https://pypi.org/project/haybarn-unittest/)),
+  exercising the full `ATTACH` → SQL path the way a user would. Install the
+  runner with `uv tool install haybarn-unittest` (binary lands in `~/.local/bin`),
+  then `make test-sql`. The worker command is exported as `VGI_NLP_WORKER` and the
+  `.test` files `LOAD vgi` + `ATTACH 'nlp' (TYPE vgi, LOCATION '${VGI_NLP_WORKER}')`.
 
 ### Layout
 
@@ -170,5 +201,7 @@ vgi_nlp/
   scalars.py         # detect_lang, sentiment, lemmatize, strip_stopwords, normalize, ...
   tables.py          # entities, tokens, sentences, noun_chunks (1 row → N rows)
   schema_utils.py    # Arrow-field / column-comment helpers
-tests/               # pytest integration tests
+tests/               # pytest unit / integration tests
+test/sql/            # haybarn-unittest .test files (end-to-end via ATTACH)
+Makefile             # test / test-unit / test-sql / models targets
 ```

@@ -11,11 +11,21 @@ strip_stopwords helpers run a spaCy pipeline (auto-detected per row unless ``lan
 is pinned) and reduce the doc back to a single string. ``normalize`` is pure
 Python (no model) -- Unicode NFKC + casefold + whitespace collapse.
 
-Conventions shared with the table functions:
+A note on argument syntax
+-------------------------
+DuckDB *scalar* functions take **positional** arguments and resolve overloads by
+arity -- the ``name := value`` named-argument syntax is a property of table
+functions and macros, not scalars. So the spaCy-backed cleaners expose their
+``lang`` / ``model`` options as positional arity overloads (mirroring how
+``vgi-translate`` does ``translate(text, 'es')`` vs ``translate(text, 'es', 'en')``):
 
-* ``lang := 'en'`` pins the pipeline language; default is per-row fastText
-  auto-detect.
-* ``model := 'en_core_web_trf'`` overrides the spaCy pipeline.
+    SELECT nlp.lemmatize(body)             FROM reviews;  -- per-row auto-detect
+    SELECT nlp.lemmatize(body, 'en')       FROM reviews;  -- pin the language
+    SELECT nlp.lemmatize(body, 'en', 'en_core_web_trf') FROM reviews;  -- pin model
+
+The *table* functions (entities / tokens / sentences / noun_chunks) keep the
+``id := 'id'``, ``lang := 'en'``, ``model := '...'`` named-argument form, which IS
+supported for table functions.
 
 NULL / empty input yields NULL output throughout.
 """
@@ -23,7 +33,7 @@ NULL / empty input yields NULL output throughout.
 from __future__ import annotations
 
 import unicodedata
-from typing import Annotated
+from typing import Annotated, Any
 
 import pyarrow as pa
 from vgi import Param, Returns, ScalarFunction
@@ -139,15 +149,47 @@ class SentimentLabel(ScalarFunction):
 # ---------------------------------------------------------------------------
 
 
+# Each spaCy-backed cleaner is a Doc -> str reduction. DuckDB scalars resolve
+# overloads by arity (not by name), and ConstParam has no default-value mechanism
+# at the catalog level, so every cleaner is exposed as three arity overloads
+# sharing one name: (text), (text, lang), and (text, lang, model).
+def _lemma_reduce(doc: Any) -> str:
+    return " ".join(tok.lemma_ for tok in doc)
+
+
+def _strip_reduce(doc: Any) -> str:
+    return " ".join(tok.text for tok in doc if not tok.is_stop and not tok.is_punct)
+
+
 class Lemmatize(ScalarFunction):
-    """Replace every token with its lemma, returning the rejoined string."""
+    """``lemmatize(text)`` -- lemmatize each text, auto-detecting the language per row."""
 
     class Meta:
         name = "lemmatize"
-        description = "Lemmatize each text (tokens replaced by their dictionary form)"
+        description = "Lemmatize each text (tokens replaced by their dictionary form); language auto-detected"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.lemmatize(body, lang := 'en') FROM reviews",
+            "SELECT nlp.lemmatize(body) FROM reviews",
+            "Lemmatize a column, auto-detecting each row's language",
+        )
+
+    @classmethod
+    def compute(
+        cls,
+        text: Annotated[pa.StringArray, Param(doc="Text column to lemmatize")],
+    ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        return _spacy_map(text.to_pylist(), None, None, _lemma_reduce)
+
+
+class LemmatizeLang(ScalarFunction):
+    """``lemmatize(text, lang)`` -- lemmatize with the pipeline language pinned."""
+
+    class Meta:
+        name = "lemmatize"
+        description = "Lemmatize each text with the pipeline language pinned (ISO-639 code)"
+        categories = ["cleaning"]
+        examples = _ex(
+            "SELECT nlp.lemmatize(body, 'en') FROM reviews",
             "Lemmatize an English column",
         )
 
@@ -155,26 +197,62 @@ class Lemmatize(ScalarFunction):
     def compute(
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to lemmatize")],
-        lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639); '' = auto-detect per row")] = "",
-        model: Annotated[str, ConstParam(doc="Override spaCy model name; '' = default for lang")] = "",
+        lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639), e.g. 'en'")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
-        return _spacy_map(
-            text.to_pylist(),
-            lang or None,
-            model or None,
-            lambda doc: " ".join(tok.lemma_ for tok in doc),
+        return _spacy_map(text.to_pylist(), lang or None, None, _lemma_reduce)
+
+
+class LemmatizeModel(ScalarFunction):
+    """``lemmatize(text, lang, model)`` -- lemmatize with an explicit spaCy model."""
+
+    class Meta:
+        name = "lemmatize"
+        description = "Lemmatize each text with an explicit spaCy model (e.g. en_core_web_trf)"
+        categories = ["cleaning"]
+        examples = _ex(
+            "SELECT nlp.lemmatize(body, 'en', 'en_core_web_trf') FROM reviews",
+            "Lemmatize with a specific spaCy model",
         )
+
+    @classmethod
+    def compute(
+        cls,
+        text: Annotated[pa.StringArray, Param(doc="Text column to lemmatize")],
+        lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639); '' = ignore when model is set")],
+        model: Annotated[str, ConstParam(doc="spaCy model name, e.g. 'en_core_web_trf'")],
+    ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        return _spacy_map(text.to_pylist(), lang or None, model or None, _lemma_reduce)
 
 
 class StripStopwords(ScalarFunction):
-    """Drop stop-words (and pure-punctuation tokens), returning the rest joined."""
+    """``strip_stopwords(text)`` -- drop stop-words/punctuation, auto-detecting language."""
 
     class Meta:
         name = "strip_stopwords"
-        description = "Remove stop-words and punctuation, returning the remaining tokens joined"
+        description = "Remove stop-words and punctuation, returning the rest joined; language auto-detected"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.strip_stopwords(body, lang := 'en') FROM reviews",
+            "SELECT nlp.strip_stopwords(body) FROM reviews",
+            "Strip stop-words, auto-detecting each row's language",
+        )
+
+    @classmethod
+    def compute(
+        cls,
+        text: Annotated[pa.StringArray, Param(doc="Text column to clean")],
+    ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        return _spacy_map(text.to_pylist(), None, None, _strip_reduce)
+
+
+class StripStopwordsLang(ScalarFunction):
+    """``strip_stopwords(text, lang)`` -- strip stop-words with the language pinned."""
+
+    class Meta:
+        name = "strip_stopwords"
+        description = "Remove stop-words and punctuation with the pipeline language pinned (ISO-639)"
+        categories = ["cleaning"]
+        examples = _ex(
+            "SELECT nlp.strip_stopwords(body, 'en') FROM reviews",
             "Strip English stop-words",
         )
 
@@ -182,15 +260,31 @@ class StripStopwords(ScalarFunction):
     def compute(
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to clean")],
-        lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639); '' = auto-detect per row")] = "",
-        model: Annotated[str, ConstParam(doc="Override spaCy model name; '' = default for lang")] = "",
+        lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639), e.g. 'en'")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
-        return _spacy_map(
-            text.to_pylist(),
-            lang or None,
-            model or None,
-            lambda doc: " ".join(tok.text for tok in doc if not tok.is_stop and not tok.is_punct),
+        return _spacy_map(text.to_pylist(), lang or None, None, _strip_reduce)
+
+
+class StripStopwordsModel(ScalarFunction):
+    """``strip_stopwords(text, lang, model)`` -- strip with an explicit spaCy model."""
+
+    class Meta:
+        name = "strip_stopwords"
+        description = "Remove stop-words and punctuation with an explicit spaCy model"
+        categories = ["cleaning"]
+        examples = _ex(
+            "SELECT nlp.strip_stopwords(body, 'en', 'en_core_web_trf') FROM reviews",
+            "Strip stop-words with a specific spaCy model",
         )
+
+    @classmethod
+    def compute(
+        cls,
+        text: Annotated[pa.StringArray, Param(doc="Text column to clean")],
+        lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639); '' = ignore when model is set")],
+        model: Annotated[str, ConstParam(doc="spaCy model name, e.g. 'en_core_web_trf'")],
+    ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        return _spacy_map(text.to_pylist(), lang or None, model or None, _strip_reduce)
 
 
 class Normalize(ScalarFunction):
@@ -251,6 +345,10 @@ SCALAR_FUNCTIONS: list[type] = [
     Sentiment,
     SentimentLabel,
     Lemmatize,
+    LemmatizeLang,
+    LemmatizeModel,
     StripStopwords,
+    StripStopwordsLang,
+    StripStopwordsModel,
     Normalize,
 ]

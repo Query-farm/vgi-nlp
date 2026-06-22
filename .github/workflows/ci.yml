@@ -51,6 +51,48 @@ jobs:
       - name: Run tests
         run: uv run pytest
 
+  e2e:
+    name: SQL end-to-end (haybarn)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
+      # Self-contained: install the worker's runtime deps + spaCy model into a
+      # venv from PyPI (not the local ../vgi-python dev path), so the worker can
+      # be launched as `.venv/bin/python nlp_worker.py` (plain python ignores the
+      # PEP-723 header that pins the dev path).
+      - name: Install worker dependencies
+        run: |
+          uv venv
+          uv pip install vgi-python "spacy>=3.7" fasttext-wheel vaderSentiment
+          uv pip install -e . --no-deps
+
+      - name: Download spaCy model
+        run: uv run python -m spacy download en_core_web_sm
+
+      - name: Download fastText language-ID model
+        run: |
+          mkdir -p ~/.cache/vgi-nlp
+          curl -L -o ~/.cache/vgi-nlp/lid.176.ftz \
+            https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz
+
+      - name: Install haybarn-unittest
+        run: |
+          uv tool install haybarn-unittest
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      # Drive the worker from the prepared venv so it resolves vgi-python + the
+      # spaCy model from PyPI. (Model downloads above may be slow; that's fine --
+      # this whole job is gated so it doesn't block the unit/lint jobs.)
+      - name: Run SQL end-to-end tests
+        run: make test-sql WORKER_STDIO=".venv/bin/python nlp_worker.py"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest

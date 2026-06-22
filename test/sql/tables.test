@@ -1,0 +1,104 @@
+# name: test/sql/tables.test
+# group: [vgi_nlp]
+#
+# Table-in-out functions via ATTACH + SELECT: entities / tokens / sentences /
+# noun_chunks. These DO accept named args (id := , lang := , model := ). We assert
+# the id passthrough and use ORDER BY / rowsort to keep results deterministic.
+
+require-env VGI_NLP_WORKER
+
+statement ok
+LOAD vgi;
+
+statement ok
+ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION '${VGI_NLP_WORKER}');
+
+statement ok
+CREATE TEMP TABLE articles AS
+  SELECT * FROM (VALUES
+    (1, 'Apple Inc. was founded by Steve Jobs in California. He loved it.'),
+    (2, 'Google and Microsoft are based in the United States.')
+  ) AS t(id, body);
+
+# ---- entities: id passthrough + label set -----------------------------------
+
+# Output schema includes the id passthrough column.
+query I
+SELECT count(*) FROM (DESCRIBE
+  SELECT * FROM nlp.entities((SELECT id, body FROM articles), id := 'id', lang := 'en'));
+----
+5
+
+# Steve Jobs belongs to row 1; the United States to row 2 (id carried through).
+query I
+SELECT id FROM nlp.entities((SELECT id, body FROM articles), id := 'id', lang := 'en')
+WHERE ent_text = 'Steve Jobs';
+----
+1
+
+query I
+SELECT id FROM nlp.entities((SELECT id, body FROM articles), id := 'id', lang := 'en')
+WHERE ent_text = 'the United States';
+----
+2
+
+# The expected label types are all present.
+query I
+SELECT count(DISTINCT label) >= 3 FROM nlp.entities((SELECT id, body FROM articles), id := 'id', lang := 'en')
+WHERE label IN ('ORG', 'PERSON', 'GPE');
+----
+true
+
+# ---- sentences: deterministic per-id index ----------------------------------
+
+# Row 1 has two sentences (0, 1); row 2 has one (0).
+query II
+SELECT id, sent_index
+FROM nlp.sentences((SELECT id, body FROM articles), id := 'id', lang := 'en')
+ORDER BY id, sent_index;
+----
+1	0
+1	1
+2	0
+
+# ---- tokens: every row carries its id; is_stop is boolean -------------------
+
+query I
+SELECT count(*) > 0 AND bool_and(id IN (1, 2))
+FROM nlp.tokens((SELECT id, body FROM articles), id := 'id', lang := 'en');
+----
+true
+
+# ---- noun_chunks: a known chunk is extracted --------------------------------
+
+query I
+SELECT count(*) FROM nlp.noun_chunks((SELECT id, body FROM articles), id := 'id', lang := 'en')
+WHERE chunk = 'Apple Inc.';
+----
+1
+
+# ---- text := names the text column explicitly -------------------------------
+
+statement ok
+CREATE TEMP TABLE headlines AS SELECT 7 AS id, 'Microsoft hired Elon Musk.' AS headline;
+
+query I rowsort
+SELECT ent_text FROM nlp.entities((SELECT id, headline FROM headlines), id := 'id', text := 'headline', lang := 'en')
+ORDER BY ent_text;
+----
+Elon Musk
+Microsoft
+
+# ---- empty / NULL text rows emit nothing (no error) -------------------------
+
+statement ok
+CREATE TEMP TABLE blanks AS
+  SELECT * FROM (VALUES (1, NULL), (2, ''), (3, '   ')) AS t(id, body);
+
+query I
+SELECT count(*) FROM nlp.entities((SELECT id, body FROM (SELECT id, body::VARCHAR AS body FROM blanks)), id := 'id', lang := 'en');
+----
+0
+
+statement ok
+DETACH nlp;

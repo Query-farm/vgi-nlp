@@ -1,0 +1,47 @@
+# name: test/sql/cleaning.test
+# group: [vgi_nlp]
+#
+# The spaCy-backed cleaning scalars (lemmatize / strip_stopwords) are exposed as
+# POSITIONAL arity overloads -- DuckDB scalars do not accept `name := value`. This
+# file pins lang positionally: lemmatize(text, 'en'), strip_stopwords(text, 'en').
+
+require-env VGI_NLP_WORKER
+
+statement ok
+LOAD vgi;
+
+statement ok
+ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION '${VGI_NLP_WORKER}');
+
+# lemmatize(text, lang): cats -> cat, running -> run.
+query I
+SELECT nlp.lemmatize('The cats were running quickly.', 'en') LIKE '%cat%run%';
+----
+true
+
+# lemmatize(text, lang, model): explicit spaCy model overload.
+query I
+SELECT nlp.lemmatize('The cats were running.', 'en', 'en_core_web_sm') LIKE '%cat%';
+----
+true
+
+# strip_stopwords(text, lang): stop-words ("this","is","a","about") + punctuation removed.
+query I
+SELECT contains(nlp.strip_stopwords('This is a very good book about cats.', 'en'), 'good')
+   AND NOT contains(' ' || nlp.strip_stopwords('This is a very good book about cats.', 'en') || ' ', ' is ');
+----
+true
+
+# NULL passthrough on the pinned-lang overload.
+query I
+SELECT nlp.lemmatize(NULL, 'en');
+----
+NULL
+
+query I
+SELECT nlp.strip_stopwords(NULL, 'en');
+----
+NULL
+
+statement ok
+DETACH nlp;

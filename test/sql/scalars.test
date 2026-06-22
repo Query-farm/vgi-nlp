@@ -1,0 +1,93 @@
+# name: test/sql/scalars.test
+# group: [vgi_nlp]
+#
+# End-to-end coverage of the scalar functions over a VALUES table, through a
+# real ATTACH + worker subprocess. Run with haybarn-unittest, so we LOAD vgi
+# explicitly (require vgi would SKIP under haybarn).
+
+require-env VGI_NLP_WORKER
+
+statement ok
+LOAD vgi;
+
+statement ok
+ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION '${VGI_NLP_WORKER}');
+
+# ---- detect_lang over a VALUES table ----------------------------------------
+
+statement ok
+CREATE TEMP TABLE docs AS
+  SELECT * FROM (VALUES
+    (1, 'I really love this wonderful product.'),
+    (2, 'Ceci est un texte écrit en français.'),
+    (3, 'Dies ist ein deutscher Satz zum Testen.')
+  ) AS t(id, body);
+
+query II rowsort
+SELECT id, nlp.detect_lang(body) FROM docs;
+----
+1	en
+2	fr
+3	de
+
+# Confidence is a positive probability near 1 (fastText can marginally exceed 1.0,
+# so we bound it loosely rather than asserting <= 1.0 exactly).
+query I
+SELECT bool_and(c > 0.5 AND c < 1.5) FROM (SELECT nlp.detect_lang_conf(body) AS c FROM docs);
+----
+true
+
+# NULL / empty input yields NULL output.
+query I
+SELECT nlp.detect_lang(NULL);
+----
+NULL
+
+query I
+SELECT nlp.detect_lang('');
+----
+NULL
+
+# ---- sentiment scalars ------------------------------------------------------
+
+# Positive text scores above negative text.
+query I
+SELECT nlp.sentiment('I love this, it is wonderful!') > nlp.sentiment('This is terrible and awful.');
+----
+true
+
+query I
+SELECT nlp.sentiment_label('I love this, it is wonderful!');
+----
+pos
+
+query I
+SELECT nlp.sentiment_label('This is terrible and awful.');
+----
+neg
+
+query I
+SELECT nlp.sentiment(NULL);
+----
+NULL
+
+# ---- normalize (pure Python, no model) --------------------------------------
+
+query I
+SELECT nlp.normalize('  Héllo   WORLD  ');
+----
+héllo world
+
+# Unicode NFKC: fullwidth 'Ａ' -> ascii 'a'; ligature 'ﬁ' -> 'fi'; emoji kept.
+query I
+SELECT nlp.normalize('Ａ ﬁle 🎉');
+----
+a file 🎉
+
+query I
+SELECT nlp.normalize(NULL);
+----
+NULL
+
+statement ok
+DETACH nlp;

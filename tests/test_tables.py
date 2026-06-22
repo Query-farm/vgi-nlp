@@ -5,10 +5,12 @@ from __future__ import annotations
 import pyarrow as pa
 import pytest
 
-from tests.harness import run_table_function, spacy_model_available
+from tests.harness import fasttext_available, run_table_function, spacy_model_available
+from vgi_nlp.pipelines import ModelNotAvailableError
 from vgi_nlp.tables import Entities, NounChunks, Sentences, Tokens
 
 needs_spacy = pytest.mark.skipif(not spacy_model_available(), reason="en_core_web_sm not installed")
+needs_fasttext = pytest.mark.skipif(not fasttext_available(), reason="fastText lid.176 model not installed")
 
 BATCH = pa.record_batch(
     {
@@ -103,3 +105,52 @@ class TestConventions:
     def test_missing_id_column_raises(self) -> None:
         with pytest.raises(ValueError, match="id column"):
             run_table_function(Entities, BATCH, named={"id": "nope", "lang": "en"})
+
+    def test_missing_text_column_raises(self) -> None:
+        with pytest.raises(ValueError, match="text column"):
+            run_table_function(Entities, BATCH, named={"id": "id", "text": "nope", "lang": "en"})
+
+    def test_non_string_text_column_raises(self) -> None:
+        # The text column must be VARCHAR; an int column is rejected at bind time.
+        batch = pa.record_batch({"id": [1], "body": [42]})
+        with pytest.raises(ValueError, match="must be VARCHAR"):
+            run_table_function(Entities, batch, named={"id": "id", "text": "body", "lang": "en"})
+
+
+@needs_spacy
+class TestErrorAndEdgeCases:
+    def test_empty_and_null_rows_emit_nothing(self) -> None:
+        # NULL / empty / whitespace-only text rows simply emit zero output rows
+        # (no error), and their ids never appear in the output.
+        batch = pa.record_batch({"id": [1, 2, 3], "body": [None, "", "   "]})
+        tbl = run_table_function(Entities, batch, named={"id": "id", "lang": "en"})
+        assert tbl.num_rows == 0
+        assert tbl.column_names == ["id", "ent_text", "label", "start_char", "end_char"]
+
+    def test_text_with_no_entities_is_empty_not_error(self) -> None:
+        # A sentence with no named entities yields an empty result, not an error.
+        batch = pa.record_batch({"id": [1], "body": ["the small cat sat quietly on a soft mat"]})
+        tbl = run_table_function(Entities, batch, named={"id": "id", "lang": "en"})
+        assert tbl.num_rows == 0
+
+    def test_tokens_still_produced_when_no_entities(self) -> None:
+        # The same plain sentence still tokenizes (tokens are not entity-gated).
+        batch = pa.record_batch({"id": [1], "body": ["the small cat sat quietly"]})
+        tbl = run_table_function(Tokens, batch, named={"id": "id", "lang": "en"})
+        assert tbl.num_rows > 0
+
+    def test_unknown_model_raises(self) -> None:
+        with pytest.raises(ModelNotAvailableError, match="not installed"):
+            run_table_function(Entities, BATCH, named={"id": "id", "model": "no_such_model_xyz"})
+
+    @needs_fasttext
+    def test_unknown_pinned_language_raises(self) -> None:
+        with pytest.raises(ModelNotAvailableError, match="No default spaCy pipeline"):
+            run_table_function(Entities, BATCH, named={"id": "id", "lang": "xx"})
+
+    def test_long_text_does_not_crash(self) -> None:
+        big = "Apple Inc. hired Steve Jobs in California. " * 500
+        batch = pa.record_batch({"id": [1], "body": [big]})
+        tbl = run_table_function(Entities, batch, named={"id": "id", "lang": "en"})
+        assert tbl.num_rows > 0
+        assert "Apple Inc." in tbl.column("ent_text").to_pylist()
