@@ -89,8 +89,11 @@ jobs:
       - name: Type check (mypy)
         run: uv run --python 3.13 mypy vgi_nlp nlp_worker.py
 
+      # Run pydoclint in an isolated env (uvx): the dev venv also contains
+      # vgi-rpc's `docstring-parser`, which collides with pydoclint's required
+      # `docstring-parser-fork` in the shared `docstring_parser` import namespace.
       - name: Docstring lint (pydoclint)
-        run: uv run --python 3.13 pydoclint vgi_nlp nlp_worker.py
+        run: uvx pydoclint vgi_nlp nlp_worker.py
 
   # Resolve the latest published haybarn release once, so the whole matrix tests
   # the same version (and we never hardcode/pin it).
