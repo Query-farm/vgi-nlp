@@ -1,3 +1,9 @@
+<p align="center">
+  <img src="docs/vgi-logo.png" alt="Vector Gateway Interface (VGI)" width="320">
+</p>
+
+<p align="center"><em>A <a href="https://query.farm">Query.Farm</a> VGI worker for DuckDB.</em></p>
+
 # vgi-nlp
 
 A [VGI](https://github.com/query-farm/vgi-python) worker that brings **classical
@@ -211,3 +217,12 @@ tests/               # pytest unit / integration tests
 test/sql/            # haybarn-unittest .test files (end-to-end via ATTACH)
 Makefile             # test / test-unit / test-sql / models targets
 ```
+
+---
+
+## Authorship & License
+
+Written by [Query.Farm](https://query.farm) — every VGI worker is designed and built by Query.Farm.
+
+Copyright 2026 Query Farm LLC - https://query.farm
+
