@@ -22,6 +22,13 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  # fasttext-wheel 0.9.2 ships no cp313 wheel, so it builds from sdist; its
+  # src/args.cc uses uint64_t without #include <cstdint>, which fails on the
+  # runner's GCC (libstdc++ no longer pulls it in transitively). Force-include
+  # the header for every C++ translation unit so the sdist compiles.
+  CXXFLAGS: "-include cstdint"
+
 jobs:
   test:
     name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
@@ -65,14 +72,19 @@ jobs:
       - name: Install uv
         uses: astral-sh/setup-uv@v8.2.0
 
+      # Pin Python 3.13: spacy 3.8 publishes no cp314 wheel, so the default
+      # newest interpreter (3.14) would fail to resolve the dependency tree.
+      - name: Set up Python 3.13
+        run: uv python install 3.13
+
       - name: Install dependencies
-        run: uv sync --all-extras
+        run: uv sync --all-extras --python 3.13
 
       - name: Check linting
-        run: uv run ruff check .
+        run: uv run --python 3.13 ruff check .
 
       - name: Type check (mypy)
-        run: uv run mypy vgi_nlp
+        run: uv run --python 3.13 mypy vgi_nlp
 
   # Resolve the latest published haybarn release once, so the whole matrix tests
   # the same version (and we never hardcode/pin it).
