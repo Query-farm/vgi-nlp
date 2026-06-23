@@ -4,7 +4,9 @@
 
 <p align="center"><em>A <a href="https://query.farm">Query.Farm</a> VGI worker for DuckDB.</em></p>
 
-# vgi-nlp
+# Classical NLP — NER, Sentiment & Language Detection in DuckDB
+
+> **vgi-nlp** · a [Query.Farm](https://query.farm) VGI worker · powered by spaCy
 
 A [VGI](https://github.com/query-farm/vgi-python) worker that brings **classical
 NLP** into DuckDB/SQL: language detection, tokenization/lemmatization,
