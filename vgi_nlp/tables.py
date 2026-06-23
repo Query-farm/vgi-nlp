@@ -33,7 +33,8 @@ from vgi.arguments import Arg, TableInput
 from vgi.invocation import BindResponse
 from vgi.metadata import FunctionExample
 from vgi.table_function import BindParams, ProcessParams
-from vgi.table_in_out_function import OutputCollector, TableInOutGenerator
+from vgi.table_in_out_function import TableInOutGenerator
+from vgi_rpc.rpc import OutputCollector
 
 from . import pipelines
 from .schema_utils import field
@@ -65,11 +66,10 @@ def _resolve_text_column(input_schema: pa.Schema, id_col: str, requested: str) -
     if requested:
         if requested not in input_schema.names:
             raise ValueError(
-                f"text column {requested!r} not found in input; "
-                f"available: {', '.join(input_schema.names)}"
+                f"text column {requested!r} not found in input; available: {', '.join(input_schema.names)}"
             )
         return requested
-    candidates = [n for n in input_schema.names if n != id_col]
+    candidates: list[str] = [n for n in input_schema.names if n != id_col]
     if not candidates:
         raise ValueError("input relation has no text column (every column is the id)")
     return candidates[0]
@@ -104,17 +104,12 @@ class _ExplodeFunction(TableInOutGenerator[NlpTableArgs]):
         assert input_schema is not None
         args = params.args
         if args.id and args.id not in input_schema.names:
-            raise ValueError(
-                f"id column {args.id!r} not found in input; "
-                f"available: {', '.join(input_schema.names)}"
-            )
+            raise ValueError(f"id column {args.id!r} not found in input; available: {', '.join(input_schema.names)}")
         text_col = _resolve_text_column(input_schema, args.id, args.text)
         # Validate the text column is string-ish at plan time for a clear error.
         text_type = input_schema.field(text_col).type
         if not (pa.types.is_string(text_type) or pa.types.is_large_string(text_type)):
-            raise ValueError(
-                f"text column {text_col!r} must be VARCHAR, got {text_type}"
-            )
+            raise ValueError(f"text column {text_col!r} must be VARCHAR, got {text_type}")
         fields: list[pa.Field] = []
         if args.id:
             fields.append(input_schema.field(args.id))
@@ -142,9 +137,7 @@ class _ExplodeFunction(TableInOutGenerator[NlpTableArgs]):
         emit_names = [f.name for f in cls.emit_fields()]
         columns: dict[str, list[Any]] = {name: [] for name in output_schema.names}
 
-        buckets = pipelines.group_by_pipeline(
-            texts, lang=args.lang or None, model=args.model or None
-        )
+        buckets = pipelines.group_by_pipeline(texts, lang=args.lang or None, model=args.model or None)
         # Process each pipeline's rows in order, then re-sort by source row index
         # so output is stable. We collect (row_index, row_dict) then flatten.
         produced: list[tuple[int, dict[str, Any]]] = []
@@ -179,6 +172,8 @@ class Entities(_ExplodeFunction):
     """Named-entity recognition: one row per entity (PERSON, ORG, GPE, DATE, ...)."""
 
     class Meta:
+        """Function metadata."""
+
         name = "entities"
         description = "Named entities per text row: (id, ent_text, label, start_char, end_char)"
         categories = ["ner"]
@@ -186,6 +181,7 @@ class Entities(_ExplodeFunction):
 
     @classmethod
     def emit_fields(cls) -> list[pa.Field]:
+        """Output columns emitted per row (excluding the optional id)."""
         return [
             field("ent_text", pa.string(), "The entity span text.", nullable=False),
             field("label", pa.string(), "Entity type (PERSON, ORG, GPE, DATE, MONEY, ...).", nullable=False),
@@ -195,6 +191,7 @@ class Entities(_ExplodeFunction):
 
     @classmethod
     def explode(cls, doc: Any) -> list[dict[str, Any]]:
+        """Turn one spaCy Doc into output-row dicts (id excluded)."""
         return [
             {
                 "ent_text": ent.text,
@@ -215,6 +212,8 @@ class Tokens(_ExplodeFunction):
     """Tokenization + POS: one row per token (token, lemma, pos, tag, is_stop, dep)."""
 
     class Meta:
+        """Function metadata."""
+
         name = "tokens"
         description = "Tokens per text row: (id, token, lemma, pos, tag, is_stop, dep)"
         categories = ["tokenization", "pos"]
@@ -222,6 +221,7 @@ class Tokens(_ExplodeFunction):
 
     @classmethod
     def emit_fields(cls) -> list[pa.Field]:
+        """Output columns emitted per row (excluding the optional id)."""
         return [
             field("token", pa.string(), "The token text.", nullable=False),
             field("lemma", pa.string(), "The token's lemma (dictionary form).", nullable=False),
@@ -233,6 +233,7 @@ class Tokens(_ExplodeFunction):
 
     @classmethod
     def explode(cls, doc: Any) -> list[dict[str, Any]]:
+        """Turn one spaCy Doc into output-row dicts (id excluded)."""
         return [
             {
                 "token": tok.text,
@@ -255,6 +256,8 @@ class Sentences(_ExplodeFunction):
     """Sentence segmentation: one row per sentence (sent_index, sentence)."""
 
     class Meta:
+        """Function metadata."""
+
         name = "sentences"
         description = "Sentences per text row: (id, sent_index, sentence) -- chunking for embeddings"
         categories = ["segmentation"]
@@ -262,6 +265,7 @@ class Sentences(_ExplodeFunction):
 
     @classmethod
     def emit_fields(cls) -> list[pa.Field]:
+        """Output columns emitted per row (excluding the optional id)."""
         return [
             field("sent_index", pa.int32(), "0-based index of the sentence within the source text.", nullable=False),
             field("sentence", pa.string(), "The sentence text.", nullable=False),
@@ -269,6 +273,7 @@ class Sentences(_ExplodeFunction):
 
     @classmethod
     def explode(cls, doc: Any) -> list[dict[str, Any]]:
+        """Turn one spaCy Doc into output-row dicts (id excluded)."""
         rows = []
         for idx, sent in enumerate(doc.sents):
             rows.append({"sent_index": idx, "sentence": sent.text.strip()})
@@ -284,6 +289,8 @@ class NounChunks(_ExplodeFunction):
     """Noun-phrase extraction: one row per noun chunk (chunk, root)."""
 
     class Meta:
+        """Function metadata."""
+
         name = "noun_chunks"
         description = "Noun chunks per text row: (id, chunk, root) -- keyword/topic candidates"
         categories = ["keywords"]
@@ -291,6 +298,7 @@ class NounChunks(_ExplodeFunction):
 
     @classmethod
     def emit_fields(cls) -> list[pa.Field]:
+        """Output columns emitted per row (excluding the optional id)."""
         return [
             field("chunk", pa.string(), "The noun-phrase text.", nullable=False),
             field("root", pa.string(), "The head/root token of the noun phrase.", nullable=False),
@@ -298,6 +306,7 @@ class NounChunks(_ExplodeFunction):
 
     @classmethod
     def explode(cls, doc: Any) -> list[dict[str, Any]]:
+        """Turn one spaCy Doc into output-row dicts (id excluded)."""
         return [{"chunk": nc.text, "root": nc.root.text} for nc in doc.noun_chunks]
 
 

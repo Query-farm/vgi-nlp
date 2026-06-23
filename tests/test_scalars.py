@@ -131,9 +131,7 @@ class TestSentiment:
         assert Sentiment.compute(pa.array(["", "   "])).to_pylist() == [None, None]
 
     def test_labels(self) -> None:
-        out = SentimentLabel.compute(
-            pa.array(["I love this!", "This is terrible.", "a plain book", None])
-        ).to_pylist()
+        out = SentimentLabel.compute(pa.array(["I love this!", "This is terrible.", "a plain book", None])).to_pylist()
         assert out == ["pos", "neg", "neu", None]
 
     def test_label_empty_is_null(self) -> None:
@@ -156,9 +154,7 @@ class TestLemmatize:
         assert "run" in out[0]
 
     def test_lemmatize_explicit_model(self) -> None:
-        out = LemmatizeModel.compute(
-            pa.array(["The cats were running quickly."]), "en", "en_core_web_sm"
-        ).to_pylist()
+        out = LemmatizeModel.compute(pa.array(["The cats were running quickly."]), "en", "en_core_web_sm").to_pylist()
         assert "cat" in out[0]
 
     @needs_fasttext
@@ -192,9 +188,7 @@ class TestStripStopwords:
         assert "is" not in out[0].split()
 
     def test_strip_explicit_model(self) -> None:
-        out = StripStopwordsModel.compute(
-            pa.array(["This is a very good book."]), "en", "en_core_web_sm"
-        ).to_pylist()
+        out = StripStopwordsModel.compute(pa.array(["This is a very good book."]), "en", "en_core_web_sm").to_pylist()
         assert "good" in out[0]
 
     @needs_fasttext

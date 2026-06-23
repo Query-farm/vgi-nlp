@@ -91,9 +91,7 @@ def _fasttext_model_path() -> str:
     if explicit:
         if os.path.exists(explicit):
             return explicit
-        raise ModelNotAvailableError(
-            f"{_FASTTEXT_ENV}={explicit!r} does not point to an existing file."
-        )
+        raise ModelNotAvailableError(f"{_FASTTEXT_ENV}={explicit!r} does not point to an existing file.")
     # Search a few conventional locations: CWD, ~/.cache/vgi-nlp, package dir.
     search_dirs = [
         os.getcwd(),
@@ -121,7 +119,7 @@ def _fasttext() -> fasttext.FastText._FastText:
 
     # fastText prints a deprecation warning to stderr on load; silence it so it
     # does not pollute the VGI stderr channel.
-    fasttext.FastText.eprint = lambda *_a, **_k: None  # type: ignore[attr-defined]
+    fasttext.FastText.eprint = lambda *_a, **_k: None
     return fasttext.load_model(_fasttext_model_path())
 
 
@@ -314,7 +312,7 @@ def warm_up() -> None:
 
 
 def batch_size() -> int:
-    """spaCy ``nlp.pipe()`` minibatch size (tunable via VGI_NLP_BATCH_SIZE)."""
+    """SpaCy ``nlp.pipe()`` minibatch size (tunable via VGI_NLP_BATCH_SIZE)."""
     try:
         return max(1, int(os.environ.get("VGI_NLP_BATCH_SIZE", "256")))
     except ValueError:

@@ -67,9 +67,7 @@ def run_table_function(
     ``named`` values may be plain Python values or ``pa.Scalar``; plain values are
     wrapped as string scalars (every NLP table arg is a string).
     """
-    named_scalars = {
-        k: v if isinstance(v, pa.Scalar) else pa.scalar(str(v)) for k, v in (named or {}).items()
-    }
+    named_scalars = {k: v if isinstance(v, pa.Scalar) else pa.scalar(str(v)) for k, v in (named or {}).items()}
     args = Arguments(positional=(), named=named_scalars)
 
     bind_req = BindRequest(

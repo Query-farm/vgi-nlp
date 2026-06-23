@@ -80,11 +80,17 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-extras --python 3.13
 
+      - name: Check formatting
+        run: uv run --python 3.13 ruff format --check .
+
       - name: Check linting
         run: uv run --python 3.13 ruff check .
 
       - name: Type check (mypy)
-        run: uv run --python 3.13 mypy vgi_nlp
+        run: uv run --python 3.13 mypy vgi_nlp nlp_worker.py
+
+      - name: Docstring lint (pydoclint)
+        run: uv run --python 3.13 pydoclint vgi_nlp nlp_worker.py
 
   # Resolve the latest published haybarn release once, so the whole matrix tests
   # the same version (and we never hardcode/pin it).

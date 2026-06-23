@@ -33,7 +33,8 @@ NULL / empty input yields NULL output throughout.
 from __future__ import annotations
 
 import unicodedata
-from typing import Annotated, Any
+from collections.abc import Callable
+from typing import Annotated, Any, cast
 
 import pyarrow as pa
 from vgi import Param, Returns, ScalarFunction
@@ -56,6 +57,8 @@ class DetectLang(ScalarFunction):
     """ISO-639 language code for each text (fastText lid.176)."""
 
     class Meta:
+        """Function metadata."""
+
         name = "detect_lang"
         description = "Detect the dominant language of each text (ISO-639 code, fastText lid.176)"
         categories = ["language-id"]
@@ -69,6 +72,7 @@ class DetectLang(ScalarFunction):
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to identify")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        """Map each input row to its output value."""
         out = [pipelines.detect_language(t)[0] for t in text.to_pylist()]
         return pa.array(out, type=pa.string())
 
@@ -77,6 +81,8 @@ class DetectLangConf(ScalarFunction):
     """Confidence (0-1) of the detected language for each text."""
 
     class Meta:
+        """Function metadata."""
+
         name = "detect_lang_conf"
         description = "Confidence (0-1) of the detected language (fastText lid.176)"
         categories = ["language-id"]
@@ -90,6 +96,7 @@ class DetectLangConf(ScalarFunction):
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to identify")],
     ) -> Annotated[pa.FloatArray, Returns(pa.float32())]:
+        """Map each input row to its output value."""
         out = [pipelines.detect_language(t)[1] for t in text.to_pylist()]
         return pa.array(out, type=pa.float32())
 
@@ -103,6 +110,8 @@ class Sentiment(ScalarFunction):
     """VADER compound sentiment score in [-1, 1] for each text."""
 
     class Meta:
+        """Function metadata."""
+
         name = "sentiment"
         description = "Sentiment score in [-1, 1] (VADER lexicon; tuned for English/social text)"
         categories = ["sentiment"]
@@ -116,6 +125,7 @@ class Sentiment(ScalarFunction):
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to score")],
     ) -> Annotated[pa.FloatArray, Returns(pa.float32())]:
+        """Map each input row to its output value."""
         out = [pipelines.vader_compound(t) for t in text.to_pylist()]
         return pa.array(out, type=pa.float32())
 
@@ -124,6 +134,8 @@ class SentimentLabel(ScalarFunction):
     """Coarse sentiment label (neg / neu / pos) for each text."""
 
     class Meta:
+        """Function metadata."""
+
         name = "sentiment_label"
         description = "Coarse sentiment label: neg / neu / pos (VADER thresholds)"
         categories = ["sentiment"]
@@ -137,10 +149,8 @@ class SentimentLabel(ScalarFunction):
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to label")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
-        out = [
-            pipelines.sentiment_label_from_score(pipelines.vader_compound(t))
-            for t in text.to_pylist()
-        ]
+        """Map each input row to its output value."""
+        out = [pipelines.sentiment_label_from_score(pipelines.vader_compound(t)) for t in text.to_pylist()]
         return pa.array(out, type=pa.string())
 
 
@@ -165,6 +175,8 @@ class Lemmatize(ScalarFunction):
     """``lemmatize(text)`` -- lemmatize each text, auto-detecting the language per row."""
 
     class Meta:
+        """Function metadata."""
+
         name = "lemmatize"
         description = "Lemmatize each text (tokens replaced by their dictionary form); language auto-detected"
         categories = ["cleaning"]
@@ -178,6 +190,7 @@ class Lemmatize(ScalarFunction):
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to lemmatize")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        """Map each input row to its output value."""
         return _spacy_map(text.to_pylist(), None, None, _lemma_reduce)
 
 
@@ -185,6 +198,8 @@ class LemmatizeLang(ScalarFunction):
     """``lemmatize(text, lang)`` -- lemmatize with the pipeline language pinned."""
 
     class Meta:
+        """Function metadata."""
+
         name = "lemmatize"
         description = "Lemmatize each text with the pipeline language pinned (ISO-639 code)"
         categories = ["cleaning"]
@@ -199,6 +214,7 @@ class LemmatizeLang(ScalarFunction):
         text: Annotated[pa.StringArray, Param(doc="Text column to lemmatize")],
         lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639), e.g. 'en'")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        """Map each input row to its output value."""
         return _spacy_map(text.to_pylist(), lang or None, None, _lemma_reduce)
 
 
@@ -206,6 +222,8 @@ class LemmatizeModel(ScalarFunction):
     """``lemmatize(text, lang, model)`` -- lemmatize with an explicit spaCy model."""
 
     class Meta:
+        """Function metadata."""
+
         name = "lemmatize"
         description = "Lemmatize each text with an explicit spaCy model (e.g. en_core_web_trf)"
         categories = ["cleaning"]
@@ -221,6 +239,7 @@ class LemmatizeModel(ScalarFunction):
         lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639); '' = ignore when model is set")],
         model: Annotated[str, ConstParam(doc="spaCy model name, e.g. 'en_core_web_trf'")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        """Map each input row to its output value."""
         return _spacy_map(text.to_pylist(), lang or None, model or None, _lemma_reduce)
 
 
@@ -228,6 +247,8 @@ class StripStopwords(ScalarFunction):
     """``strip_stopwords(text)`` -- drop stop-words/punctuation, auto-detecting language."""
 
     class Meta:
+        """Function metadata."""
+
         name = "strip_stopwords"
         description = "Remove stop-words and punctuation, returning the rest joined; language auto-detected"
         categories = ["cleaning"]
@@ -241,6 +262,7 @@ class StripStopwords(ScalarFunction):
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to clean")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        """Map each input row to its output value."""
         return _spacy_map(text.to_pylist(), None, None, _strip_reduce)
 
 
@@ -248,6 +270,8 @@ class StripStopwordsLang(ScalarFunction):
     """``strip_stopwords(text, lang)`` -- strip stop-words with the language pinned."""
 
     class Meta:
+        """Function metadata."""
+
         name = "strip_stopwords"
         description = "Remove stop-words and punctuation with the pipeline language pinned (ISO-639)"
         categories = ["cleaning"]
@@ -262,6 +286,7 @@ class StripStopwordsLang(ScalarFunction):
         text: Annotated[pa.StringArray, Param(doc="Text column to clean")],
         lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639), e.g. 'en'")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        """Map each input row to its output value."""
         return _spacy_map(text.to_pylist(), lang or None, None, _strip_reduce)
 
 
@@ -269,6 +294,8 @@ class StripStopwordsModel(ScalarFunction):
     """``strip_stopwords(text, lang, model)`` -- strip with an explicit spaCy model."""
 
     class Meta:
+        """Function metadata."""
+
         name = "strip_stopwords"
         description = "Remove stop-words and punctuation with an explicit spaCy model"
         categories = ["cleaning"]
@@ -284,6 +311,7 @@ class StripStopwordsModel(ScalarFunction):
         lang: Annotated[str, ConstParam(doc="Pipeline language (ISO-639); '' = ignore when model is set")],
         model: Annotated[str, ConstParam(doc="spaCy model name, e.g. 'en_core_web_trf'")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        """Map each input row to its output value."""
         return _spacy_map(text.to_pylist(), lang or None, model or None, _strip_reduce)
 
 
@@ -291,6 +319,8 @@ class Normalize(ScalarFunction):
     """Unicode NFKC + casefold + whitespace collapse (no model needed)."""
 
     class Meta:
+        """Function metadata."""
+
         name = "normalize"
         description = "Normalize text: Unicode NFKC, lowercase, and collapse whitespace"
         categories = ["cleaning"]
@@ -304,6 +334,7 @@ class Normalize(ScalarFunction):
         cls,
         text: Annotated[pa.StringArray, Param(doc="Text column to normalize")],
     ) -> Annotated[pa.StringArray, Returns(pa.string())]:
+        """Map each input row to its output value."""
         out: list[str | None] = []
         for t in text.to_pylist():
             if t is None:
@@ -319,7 +350,12 @@ class Normalize(ScalarFunction):
 # ---------------------------------------------------------------------------
 
 
-def _spacy_map(texts, lang, model, reduce) -> pa.StringArray:  # noqa: ANN001
+def _spacy_map(
+    texts: list[str | None],
+    lang: str | None,
+    model: str | None,
+    reduce: Callable[[Any], str],
+) -> pa.StringArray:
     """Run a spaCy pipeline over ``texts`` and reduce each Doc to a string.
 
     Rows are grouped by pipeline so ``nlp.pipe()`` batches each language once.
@@ -330,8 +366,10 @@ def _spacy_map(texts, lang, model, reduce) -> pa.StringArray:  # noqa: ANN001
     buckets = pipelines.group_by_pipeline(texts, lang=lang, model=model)
     for model_name, idxs in buckets.items():
         pipe = pipelines.load_spacy_by_name(model_name)
+        # group_by_pipeline only buckets indices whose text is a non-empty str,
+        # so texts[i] is never None here.
         docs = pipe.pipe(
-            (texts[i] for i in idxs),
+            (cast(str, texts[i]) for i in idxs),
             batch_size=pipelines.batch_size(),
         )
         for i, doc in zip(idxs, docs, strict=False):
