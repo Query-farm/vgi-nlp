@@ -8,7 +8,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "Query Farm", email = "hello@query.farm" }]
 keywords = ["vgi", "duckdb", "nlp", "spacy", "fasttext", "sentiment", "ner"]
 dependencies = [
-    "vgi-python",
+    "vgi-python>=0.8.3",
     "spacy>=3.7",
     "fasttext-wheel",
     "vaderSentiment",
@@ -26,7 +26,6 @@ dev = [
 Homepage = "https://query.farm"
 
 [tool.uv.sources]
-vgi-python = { path = "../vgi-python" }
 en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
 
 [build-system]

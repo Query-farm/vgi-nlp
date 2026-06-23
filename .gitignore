@@ -11,4 +11,3 @@ models/
 *.coverage
 .coverage
 .test-models/
-uv.lock

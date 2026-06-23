@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#     "vgi-python",
+#     "vgi-python>=0.8.3",
 #     "spacy>=3.7",
 #     "fasttext-wheel",
 #     "vaderSentiment",
@@ -9,7 +9,6 @@
 # ]
 #
 # [tool.uv.sources]
-# vgi-python = { path = "../vgi-python" }
 # en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
 # ///
 """VGI worker exposing classical NLP (spaCy + fastText + VADER) to DuckDB/SQL.
