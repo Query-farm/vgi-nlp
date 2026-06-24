@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#     "vgi-python[http]>=0.8.3",
+#     "vgi-python[http]>=0.8.4",
 #     "spacy>=3.7",
 #     "fasttext-wheel",
 #     "vaderSentiment",
@@ -44,13 +44,58 @@ from vgi_nlp import pipelines
 from vgi_nlp.scalars import SCALAR_FUNCTIONS
 from vgi_nlp.tables import TABLE_FUNCTIONS
 
+_CATALOG_DESCRIPTION_LLM = (
+    "Classical, non-LLM natural-language processing over text columns: detect each "
+    "row's language and confidence (fastText lid.176), score sentiment in [-1, 1] and "
+    "label it neg/neu/pos (VADER), lemmatize, strip stop-words, and Unicode-normalize "
+    "text (spaCy), plus table-valued functions that explode a text column into named "
+    "entities, tokens with POS tags, sentences, and noun chunks. Use it for bulk, cheap, "
+    "per-row text enrichment in SQL -- upstream of, not a wrapper around, LLM workers."
+)
+
+_CATALOG_DESCRIPTION_MD = (
+    "# nlp\n\n"
+    "Classical NLP (spaCy + fastText language-ID + VADER sentiment) exposed to "
+    "DuckDB/SQL as a VGI worker -- bulk, cheap, per-row text enrichment.\n\n"
+    "**Scalars:** `detect_lang`, `detect_lang_conf`, `sentiment`, `sentiment_label`, "
+    "`lemmatize`, `strip_stopwords`, `normalize`.\n\n"
+    "**Table functions:** `entities`, `tokens`, `sentences`, `noun_chunks` "
+    "(one text row in, N rows out, with an optional `id :=` passthrough)."
+)
+
+_SCHEMA_DESCRIPTION_LLM = (
+    "Classical NLP functions over text columns: language identification, sentiment "
+    "scoring/labelling, lemmatization, stop-word stripping, Unicode normalization, and "
+    "table-valued entity/token/sentence/noun-chunk extraction."
+)
+
+_SCHEMA_DESCRIPTION_MD = (
+    "Classical NLP functions: language ID, sentiment, cleaning scalars, and "
+    "entity/token/sentence/noun-chunk table functions."
+)
+
 _NLP_CATALOG = Catalog(
     name="nlp",
     default_schema="main",
+    comment="Classical NLP (spaCy + fastText + VADER): language ID, sentiment, NER, tokenization for SQL.",
+    source_url="https://github.com/Query-farm/vgi-nlp",
+    tags={
+        "vgi.description_llm": _CATALOG_DESCRIPTION_LLM,
+        "vgi.description_md": _CATALOG_DESCRIPTION_MD,
+        "vgi.author": "Query.Farm",
+        "vgi.copyright": "Copyright 2026 Query Farm LLC - https://query.farm",
+        "vgi.license": "Query Farm Source-Available License, Version 1.0",
+        "vgi.support_contact": "https://github.com/Query-farm/vgi-nlp/issues",
+        "vgi.support_policy_url": "https://github.com/Query-farm/vgi-nlp/blob/main/README.md",
+    },
     schemas=[
         Schema(
             name="main",
             comment="Classical NLP: language ID, sentiment, NER, tokenization for SQL",
+            tags={
+                "vgi.description_llm": _SCHEMA_DESCRIPTION_LLM,
+                "vgi.description_md": _SCHEMA_DESCRIPTION_MD,
+            },
             functions=[*SCALAR_FUNCTIONS, *TABLE_FUNCTIONS],
         ),
     ],

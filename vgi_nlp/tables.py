@@ -178,6 +178,17 @@ class Entities(_ExplodeFunction):
         description = "Named entities per text row: (id, ent_text, label, start_char, end_char)"
         categories = ["ner"]
         examples = _ex("entities")
+        tags = {
+            "vgi.columns_md": (
+                "| column | type | description |\n"
+                "|---|---|---|\n"
+                "| `<id>` | (input) | Passthrough id from `id :=`, copied onto every row (omitted if no `id`). |\n"
+                "| `ent_text` | VARCHAR | The entity span text. |\n"
+                "| `label` | VARCHAR | Entity type (`PERSON`, `ORG`, `GPE`, `DATE`, `MONEY`, ...). |\n"
+                "| `start_char` | INTEGER | Start character offset within the source text. |\n"
+                "| `end_char` | INTEGER | End character offset within the source text. |"
+            ),
+        }
 
     @classmethod
     def emit_fields(cls) -> list[pa.Field]:
@@ -218,6 +229,19 @@ class Tokens(_ExplodeFunction):
         description = "Tokens per text row: (id, token, lemma, pos, tag, is_stop, dep)"
         categories = ["tokenization", "pos"]
         examples = _ex("tokens")
+        tags = {
+            "vgi.columns_md": (
+                "| column | type | description |\n"
+                "|---|---|---|\n"
+                "| `<id>` | (input) | Passthrough id from `id :=`, copied onto every row (omitted if no `id`). |\n"
+                "| `token` | VARCHAR | The token text. |\n"
+                "| `lemma` | VARCHAR | The token's lemma (dictionary form). |\n"
+                "| `pos` | VARCHAR | Coarse universal part-of-speech tag. |\n"
+                "| `tag` | VARCHAR | Fine-grained part-of-speech tag. |\n"
+                "| `is_stop` | BOOLEAN | Whether the token is a stop-word. |\n"
+                "| `dep` | VARCHAR | Syntactic dependency relation. |"
+            ),
+        }
 
     @classmethod
     def emit_fields(cls) -> list[pa.Field]:
@@ -262,6 +286,15 @@ class Sentences(_ExplodeFunction):
         description = "Sentences per text row: (id, sent_index, sentence) -- chunking for embeddings"
         categories = ["segmentation"]
         examples = _ex("sentences")
+        tags = {
+            "vgi.columns_md": (
+                "| column | type | description |\n"
+                "|---|---|---|\n"
+                "| `<id>` | (input) | Passthrough id from `id :=`, copied onto every row (omitted if no `id`). |\n"
+                "| `sent_index` | INTEGER | 0-based index of the sentence within the source text. |\n"
+                "| `sentence` | VARCHAR | The sentence text. |"
+            ),
+        }
 
     @classmethod
     def emit_fields(cls) -> list[pa.Field]:
@@ -295,6 +328,15 @@ class NounChunks(_ExplodeFunction):
         description = "Noun chunks per text row: (id, chunk, root) -- keyword/topic candidates"
         categories = ["keywords"]
         examples = _ex("noun_chunks")
+        tags = {
+            "vgi.columns_md": (
+                "| column | type | description |\n"
+                "|---|---|---|\n"
+                "| `<id>` | (input) | Passthrough id from `id :=`, copied onto every row (omitted if no `id`). |\n"
+                "| `chunk` | VARCHAR | The noun-phrase text. |\n"
+                "| `root` | VARCHAR | The head/root token of the noun phrase. |"
+            ),
+        }
 
     @classmethod
     def emit_fields(cls) -> list[pa.Field]:

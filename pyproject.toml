@@ -8,7 +8,7 @@ license = { file = "LICENSE" }
 authors = [{ name = "Query Farm", email = "hello@query.farm" }]
 keywords = ["vgi", "duckdb", "nlp", "spacy", "fasttext", "sentiment", "ner"]
 dependencies = [
-    "vgi-python>=0.8.3",
+    "vgi-python>=0.8.4",
     "spacy>=3.7",
     "fasttext-wheel",
     "vaderSentiment",
@@ -19,7 +19,7 @@ dependencies = [
 # addition to stdio. That path needs vgi-python's `http` extra (waitress).
 # CI's http transport leg installs this via `uv sync --extra http`.
 http = [
-    "vgi-python[http]>=0.8.3",
+    "vgi-python[http]>=0.8.4",
 ]
 dev = [
     "pytest>=8",
