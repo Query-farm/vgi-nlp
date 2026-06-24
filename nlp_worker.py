@@ -70,8 +70,24 @@ _SCHEMA_DESCRIPTION_LLM = (
 )
 
 _SCHEMA_DESCRIPTION_MD = (
-    "Classical NLP functions: language ID, sentiment, cleaning scalars, and "
-    "entity/token/sentence/noun-chunk table functions."
+    "# main\n\n"
+    "Classical NLP functions exposed to SQL.\n\n"
+    "- **Scalars:** language ID/confidence, sentiment score/label, lemmatize, "
+    "strip stop-words, normalize.\n"
+    "- **Table functions:** entities, tokens, sentences, noun_chunks "
+    "(one text row in, N rows out, with an optional `id :=` passthrough)."
+)
+
+# Representative, catalog-qualified example queries for the schema (VGI506).
+# All are self-contained so they bind/execute against the worker.
+_SCHEMA_EXAMPLE_QUERIES = (
+    "SELECT nlp.main.detect_lang('Bonjour tout le monde');\n"
+    "SELECT nlp.main.sentiment('I absolutely love this product!');\n"
+    "SELECT nlp.main.sentiment_label('This was a terrible experience');\n"
+    "SELECT nlp.main.lemmatize('The cats were running', 'en');\n"
+    "SELECT nlp.main.normalize('  Café   DELUXE  ');\n"
+    "SELECT * FROM nlp.main.entities("
+    "(SELECT 1 AS id, 'Apple is based in California.' AS body), id := 'id', lang := 'en');"
 )
 
 _NLP_CATALOG = Catalog(
@@ -80,11 +96,17 @@ _NLP_CATALOG = Catalog(
     comment="Classical NLP (spaCy + fastText + VADER): language ID, sentiment, NER, tokenization for SQL.",
     source_url="https://github.com/Query-farm/vgi-nlp",
     tags={
-        "vgi.description_llm": _CATALOG_DESCRIPTION_LLM,
-        "vgi.description_md": _CATALOG_DESCRIPTION_MD,
+        "vgi.title": "Classical NLP for SQL",
+        "vgi.keywords": (
+            "nlp, natural language processing, language detection, sentiment analysis, "
+            "named entity recognition, ner, tokenization, lemmatize, stop words, "
+            "noun chunks, spacy, fasttext, vader, text enrichment"
+        ),
+        "vgi.doc_llm": _CATALOG_DESCRIPTION_LLM,
+        "vgi.doc_md": _CATALOG_DESCRIPTION_MD,
         "vgi.author": "Query.Farm",
         "vgi.copyright": "Copyright 2026 Query Farm LLC - https://query.farm",
-        "vgi.license": "Query Farm Source-Available License, Version 1.0",
+        "vgi.license": "LicenseRef-QueryFarm-Source-Available-1.0",
         "vgi.support_contact": "https://github.com/Query-farm/vgi-nlp/issues",
         "vgi.support_policy_url": "https://github.com/Query-farm/vgi-nlp/blob/main/README.md",
     },
@@ -93,8 +115,20 @@ _NLP_CATALOG = Catalog(
             name="main",
             comment="Classical NLP: language ID, sentiment, NER, tokenization for SQL",
             tags={
-                "vgi.description_llm": _SCHEMA_DESCRIPTION_LLM,
-                "vgi.description_md": _SCHEMA_DESCRIPTION_MD,
+                "vgi.title": "NLP Functions (main)",
+                "vgi.keywords": (
+                    "nlp, language detection, sentiment, ner, entities, tokens, "
+                    "sentences, noun chunks, lemmatize, strip stopwords, normalize, "
+                    "spacy, fasttext, vader"
+                ),
+                # VGI123 classifying tags use BARE keys (not vgi.-namespaced).
+                "domain": "text-analytics",
+                "category": "natural-language-processing",
+                "topic": "language-detection-sentiment-ner",
+                "vgi.source_url": "https://github.com/Query-farm/vgi-nlp/blob/main/nlp_worker.py",
+                "vgi.doc_llm": _SCHEMA_DESCRIPTION_LLM,
+                "vgi.doc_md": _SCHEMA_DESCRIPTION_MD,
+                "vgi.example_queries": _SCHEMA_EXAMPLE_QUERIES,
             },
             functions=[*SCALAR_FUNCTIONS, *TABLE_FUNCTIONS],
         ),
