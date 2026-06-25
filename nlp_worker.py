@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#     "vgi-python[http]>=0.8.4",
+#     "vgi-python[http]>=0.8.5",
 #     "spacy>=3.7",
 #     "fasttext-wheel",
 #     "vaderSentiment",
@@ -35,6 +35,7 @@ First-use model requirements:
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from vgi import Worker
@@ -97,10 +98,23 @@ _NLP_CATALOG = Catalog(
     source_url="https://github.com/Query-farm/vgi-nlp",
     tags={
         "vgi.title": "Classical NLP for SQL",
-        "vgi.keywords": (
-            "nlp, natural language processing, language detection, sentiment analysis, "
-            "named entity recognition, ner, tokenization, lemmatize, stop words, "
-            "noun chunks, spacy, fasttext, vader, text enrichment"
+        "vgi.keywords": json.dumps(
+            [
+                "nlp",
+                "natural language processing",
+                "language detection",
+                "sentiment analysis",
+                "named entity recognition",
+                "ner",
+                "tokenization",
+                "lemmatize",
+                "stop words",
+                "noun chunks",
+                "spacy",
+                "fasttext",
+                "vader",
+                "text enrichment",
+            ]
         ),
         "vgi.doc_llm": _CATALOG_DESCRIPTION_LLM,
         "vgi.doc_md": _CATALOG_DESCRIPTION_MD,
@@ -116,16 +130,29 @@ _NLP_CATALOG = Catalog(
             comment="Classical NLP: language ID, sentiment, NER, tokenization for SQL",
             tags={
                 "vgi.title": "NLP Functions (main)",
-                "vgi.keywords": (
-                    "nlp, language detection, sentiment, ner, entities, tokens, "
-                    "sentences, noun chunks, lemmatize, strip stopwords, normalize, "
-                    "spacy, fasttext, vader"
+                "vgi.keywords": json.dumps(
+                    [
+                        "nlp",
+                        "language detection",
+                        "sentiment",
+                        "ner",
+                        "entities",
+                        "tokens",
+                        "sentences",
+                        "noun chunks",
+                        "lemmatize",
+                        "strip stopwords",
+                        "normalize",
+                        "spacy",
+                        "fasttext",
+                        "vader",
+                    ]
                 ),
                 # VGI123 classifying tags use BARE keys (not vgi.-namespaced).
                 "domain": "text-analytics",
                 "category": "natural-language-processing",
                 "topic": "language-detection-sentiment-ner",
-                "vgi.source_url": "https://github.com/Query-farm/vgi-nlp/blob/main/nlp_worker.py",
+                # VGI139: source_url lives only on the catalog object, not here.
                 "vgi.doc_llm": _SCHEMA_DESCRIPTION_LLM,
                 "vgi.doc_md": _SCHEMA_DESCRIPTION_MD,
                 "vgi.example_queries": _SCHEMA_EXAMPLE_QUERIES,

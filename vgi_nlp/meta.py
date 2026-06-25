@@ -8,25 +8,26 @@ Each function/table surfaces these in its ``Meta.tags``:
 - ``vgi.doc_llm`` (VGI112)      -- Markdown narrative aimed at LLMs/agents
 - ``vgi.doc_md`` (VGI113)       -- Markdown narrative for human docs (distinct
   content from ``doc_llm``)
-- ``vgi.keywords`` (VGI126)     -- comma-separated search terms/synonyms
-- ``vgi.source_url`` (VGI128)   -- link to the implementing source file
+- ``vgi.keywords`` (VGI126/VGI138) -- a JSON array of search-term/synonym strings
 
-``source_url(file)`` builds the canonical GitHub blob URL so every object points
-at exactly where it is implemented.
+Per-object ``vgi.source_url`` is intentionally NOT emitted here: VGI139 requires
+``source_url`` to live only on the catalog object (set on ``Catalog(...)`` in
+``nlp_worker.py``), not on every function/schema.
 """  # noqa: D205
 
 from __future__ import annotations
 
-#: Base GitHub blob URL for source files in this repo (pinned to ``main``).
-SOURCE_BASE = "https://github.com/Query-farm/vgi-nlp/blob/main"
+import json
 
 
-def source_url(relative_path: str) -> str:
-    """Build the implementation ``vgi.source_url`` for a repo-relative file.
+def keywords_array(keywords: str) -> str:
+    """Serialize comma-separated keywords as a JSON array of strings (VGI138).
 
-    e.g. ``source_url("vgi_nlp/scalars.py")``.
+    ``keywords`` is a comma-separated list (e.g. ``"ner, entities, spacy"``);
+    each term is trimmed and emitted as one element of a JSON string array.
     """
-    return f"{SOURCE_BASE}/{relative_path}"
+    terms = [k.strip() for k in keywords.split(",") if k.strip()]
+    return json.dumps(terms)
 
 
 def object_tags(
@@ -36,14 +37,15 @@ def object_tags(
     keywords: str,
     relative_path: str,
 ) -> dict[str, str]:
-    """Build the five standard per-object discovery/description tags.
+    """Build the standard per-object discovery/description tags.
 
-    ``relative_path`` is the implementing file relative to the repo root.
+    ``relative_path`` is the implementing file relative to the repo root; it is
+    retained for call-site documentation but no longer emitted as a per-object
+    ``vgi.source_url`` (VGI139 keeps ``source_url`` on the catalog only).
     """
     return {
         "vgi.title": title,
         "vgi.doc_llm": doc_llm,
         "vgi.doc_md": doc_md,
-        "vgi.keywords": keywords,
-        "vgi.source_url": source_url(relative_path),
+        "vgi.keywords": keywords_array(keywords),
     }
