@@ -56,6 +56,7 @@ _CATALOG_DESCRIPTION_LLM = (
 
 _CATALOG_DESCRIPTION_MD = (
     "# Classical NLP for DuckDB SQL\n\n"
+    "![spaCy logo](https://upload.wikimedia.org/wikipedia/commons/8/88/SpaCy_logo.svg)\n\n"
     "Run **classical natural language processing in SQL** -- language detection, "
     "sentiment analysis, named entity recognition (NER), lemmatization, and "
     "tokenization -- directly over your text columns in DuckDB, no LLM and no API "
