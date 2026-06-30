@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#     "vgi-python[http]>=0.8.5",
+#     "vgi-python[http]>=0.9.0",
 #     "spacy>=3.7",
 #     "fasttext-wheel",
 #     "vaderSentiment",
