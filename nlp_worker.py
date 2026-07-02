@@ -59,33 +59,44 @@ _CATALOG_DESCRIPTION_MD = (
     "![spaCy logo](https://upload.wikimedia.org/wikipedia/commons/8/88/SpaCy_logo.svg)\n\n"
     "Run **classical natural language processing in SQL** -- language detection, "
     "sentiment analysis, named entity recognition (NER), lemmatization, and "
-    "tokenization -- directly over your text columns in DuckDB, no LLM and no API "
-    "key required. The `nlp` catalog turns the proven open-source NLP stack of "
+    "tokenization -- directly over your text columns in DuckDB, with no LLM and no "
+    "API key required. This worker turns the proven open-source NLP stack of "
     "[spaCy](https://spacy.io), [fastText](https://fasttext.cc/), and "
-    "[VADER](https://github.com/cjhutto/vaderSentiment) into a handful of fast, "
-    "deterministic SQL functions for bulk, cheap, per-row text enrichment.\n\n"
-    "This extension is for data engineers and analysts who want to enrich large "
-    "text tables -- product reviews, support tickets, articles, social posts -- "
-    "without leaving SQL or paying per-token. Under the hood it loads each model "
-    "once per worker process and caches it: language identification uses "
-    "Facebook's [fastText `lid.176`](https://fasttext.cc/docs/en/language-identification.html) "
-    "model (176 languages), sentiment uses the lexicon-and-rule-based VADER "
-    "scorer, and entity/token/sentence/noun-chunk extraction plus lemmatization "
-    "and Unicode normalization use spaCy's `en_core_web_sm` pipeline. Because it "
-    "is rule- and statistics-based rather than generative, output is reproducible "
-    "and runs at column scale -- ideal *upstream* of, not as a replacement for, "
-    "LLM workers.\n\n"
-    "**Scalar functions** operate one value in, one value out: `detect_lang` and "
-    "`detect_lang_conf` return a row's language code and confidence; `sentiment` "
-    "returns a polarity score in `[-1, 1]` and `sentiment_label` returns "
-    "neg/neu/pos; `lemmatize`, `strip_stopwords`, and `normalize` clean and "
-    "canonicalize text (with optional language/model arity overloads, e.g. "
-    "`lemmatize(text, 'en')`). **Table functions** explode one text row into many "
-    "rows: `entities` (NER spans + labels), `tokens` (tokens with part-of-speech "
-    "tags), `sentences`, and `noun_chunks`, each accepting an optional `id :=` "
-    "passthrough and `lang :=` / `model :=` named arguments. For example: "
-    "`SELECT nlp.detect_lang(review) AS lang, count(*) FROM reviews GROUP BY 1;` "
-    "or `SELECT * FROM nlp.entities((SELECT id, body FROM articles), id := 'id');`\n\n"
+    "[VADER](https://github.com/cjhutto/vaderSentiment) into fast, deterministic "
+    "SQL functions for bulk, cheap, per-row text enrichment.\n\n"
+    "## Who it is for\n\n"
+    "Data engineers and analysts who want to enrich large text tables -- product "
+    "reviews, support tickets, articles, social posts -- without leaving SQL or "
+    "paying per token. Because the underlying models are rule- and "
+    "statistics-based rather than generative, output is reproducible and runs at "
+    "column scale -- ideal *upstream* of, not as a replacement for, LLM workers.\n\n"
+    "## Key concepts\n\n"
+    "- **Models load once per worker process and are cached**, so the one-time "
+    "model-load cost is amortized across every row of every query.\n"
+    "- **Language identification** uses Facebook's "
+    "[fastText lid.176](https://fasttext.cc/docs/en/language-identification.html) "
+    "model (176 languages). When you do not pin a language, each row is routed to "
+    "the matching language pipeline automatically.\n"
+    "- **Sentiment** uses the lexicon-and-rule-based VADER scorer, tuned for "
+    "English and social media text; it understands negation, intensifiers, and "
+    "emoji.\n"
+    "- **Linguistic analysis** -- structured span extraction, part-of-speech "
+    "tagging, sentence boundaries, noun-phrase mining, lemmatization, and Unicode "
+    "normalization -- uses spaCy's small English pipeline "
+    "(`en_core_web_sm`) by default; pin a language or name a specific model to "
+    "override it.\n\n"
+    "## When to reach for it\n\n"
+    "Use it whenever you need to enrich or filter free text at scale in SQL: "
+    "detect and segment multilingual corpora, score or bucket opinion, clean and "
+    "canonicalize text so free-text keys join and group reliably, or split "
+    "documents into structured rows you can aggregate and join back to their "
+    "source. Attach the worker, then list the schema to discover the available "
+    "functions and their signatures:\n\n"
+    "```sql\n"
+    "INSTALL vgi FROM community;\n"
+    "LOAD vgi;\n"
+    "ATTACH 'nlp' (TYPE vgi, LOCATION 'uv run nlp_worker.py');\n"
+    "```\n\n"
     "Powered by spaCy ([source](https://github.com/explosion/spaCy) - "
     "[docs](https://spacy.io/usage)), fastText "
     "([source](https://github.com/facebookresearch/fastText) - "
@@ -122,6 +133,187 @@ _SCHEMA_EXAMPLE_QUERIES = (
     "(SELECT 1 AS id, 'Apple is based in California.' AS body), id := 'id', lang := 'en');"
 )
 
+# Ordered navigation registry for the `main` schema (VGI408-413). Every function
+# carries a `vgi.category` naming exactly one of these; the order here is the
+# display order for listings/SEO. Keep names in sync with the per-function
+# `category=` passed to `object_tags(...)` in scalars.py / tables.py.
+_SCHEMA_CATEGORIES = json.dumps(
+    [
+        {
+            "name": "language-id",
+            "title": "Language identification",
+            "description": "Detect the natural language of each text and how confident the model is.",
+        },
+        {
+            "name": "sentiment",
+            "title": "Sentiment analysis",
+            "description": "Score and label the emotional polarity of text (VADER).",
+        },
+        {
+            "name": "text-cleaning",
+            "title": "Text cleaning & normalization",
+            "description": (
+                "Lemmatize, strip stop-words, and Unicode-normalize text so it is ready for "
+                "matching, dedup, search, and featurization."
+            ),
+        },
+        {
+            "name": "extraction",
+            "title": "Structured extraction",
+            "description": (
+                "Explode one text row into many structured rows: named entities, annotated "
+                "tokens, sentences, and noun chunks."
+            ),
+        },
+    ]
+)
+
+
+# Fixed analyst-suitability suite (VGI152 / VGI920). `vgi-lint simulate` drives an
+# LLM analyst through each task -- it sees only the `prompt` plus the live catalog
+# listing, never the `reference_sql`. Grading runs `reference_sql` against THIS
+# worker and compares result sets, so model-dependent outputs (NER counts, lemmas)
+# are still deterministic: both sides use the same pinned `en_core_web_sm`. Tasks
+# use `ignore_column_names` (values are what matter) and `unordered` for the
+# table functions, whose row order is intentionally not guaranteed.
+_AGENT_TEST_TASKS = json.dumps(
+    [
+        {
+            "name": "detect-language-code",
+            "prompt": (
+                "Identify the language of the text "
+                "'Bonjour tout le monde, comment allez-vous aujourd''hui?' and return its "
+                "two-letter ISO-639 language code in a column named lang."
+            ),
+            "reference_sql": (
+                "SELECT nlp.detect_lang('Bonjour tout le monde, comment allez-vous aujourd''hui?') AS lang"
+            ),
+            "ignore_column_names": True,
+        },
+        {
+            "name": "language-code-and-confidence",
+            "prompt": (
+                "For the text 'The quick brown fox jumps over the lazy dog', return both its "
+                "detected ISO-639 language code and the detector's confidence score, as two "
+                "columns named lang and conf."
+            ),
+            "reference_sql": (
+                "SELECT nlp.detect_lang('The quick brown fox jumps over the lazy dog') AS lang, "
+                "nlp.detect_lang_conf('The quick brown fox jumps over the lazy dog') AS conf"
+            ),
+            "ignore_column_names": True,
+        },
+        {
+            "name": "sentiment-score",
+            "prompt": (
+                "Compute the sentiment polarity score (a number in [-1, 1]) of the sentence "
+                "'I absolutely love this product, it works wonderfully!' and return it in a "
+                "column named score."
+            ),
+            "reference_sql": ("SELECT nlp.sentiment('I absolutely love this product, it works wonderfully!') AS score"),
+            "ignore_column_names": True,
+        },
+        {
+            "name": "sentiment-label",
+            "prompt": (
+                "Classify the sentiment of the sentence "
+                "'This is the worst experience I have ever had' into a coarse label of "
+                "negative, neutral, or positive, and return the label in a column named mood."
+            ),
+            "reference_sql": ("SELECT nlp.sentiment_label('This is the worst experience I have ever had') AS mood"),
+            "ignore_column_names": True,
+        },
+        {
+            "name": "normalize-text",
+            "prompt": (
+                "Produce a canonical, comparable form of the string '  Cafe   DELUXE  ' by "
+                "applying Unicode normalization, lowercasing, and collapsing runs of whitespace. "
+                "Return it in a column named canonical."
+            ),
+            "reference_sql": "SELECT nlp.normalize('  Cafe   DELUXE  ') AS canonical",
+            "ignore_column_names": True,
+        },
+        {
+            "name": "lemmatize-english",
+            "prompt": (
+                "Lemmatize the English sentence 'The cats were running quickly' by reducing each "
+                "word to its dictionary base form, and return the space-joined lemmas in a column "
+                "named lemmas. Treat the text as English."
+            ),
+            "reference_sql": "SELECT nlp.lemmatize('The cats were running quickly', 'en') AS lemmas",
+            "ignore_column_names": True,
+        },
+        {
+            "name": "strip-stopwords",
+            "prompt": (
+                "Remove English stop-words and punctuation from the sentence "
+                "'this is a really great movie' and return the remaining content words, "
+                "space-joined, in a column named kept. Treat the text as English."
+            ),
+            "reference_sql": "SELECT nlp.strip_stopwords('this is a really great movie', 'en') AS kept",
+            "ignore_column_names": True,
+        },
+        {
+            "name": "count-named-entities",
+            "prompt": (
+                "Count how many named entities are found in the sentence "
+                "'Apple was founded by Steve Jobs in California.' Treat the text as English. "
+                "Return the count in a column named n."
+            ),
+            "reference_sql": (
+                "SELECT count(*) AS n FROM nlp.entities("
+                "(SELECT 1 AS id, 'Apple was founded by Steve Jobs in California.' AS body), "
+                "id := 'id', lang := 'en')"
+            ),
+            "ignore_column_names": True,
+        },
+        {
+            "name": "tokens-with-pos",
+            "prompt": (
+                "For the English sentence 'The quick brown fox jumps.', list each token together "
+                "with its part-of-speech tag. Return columns token and pos, one row per token. "
+                "Treat the text as English."
+            ),
+            "reference_sql": (
+                "SELECT token, pos FROM nlp.tokens("
+                "(SELECT 1 AS id, 'The quick brown fox jumps.' AS body), id := 'id', lang := 'en')"
+            ),
+            "unordered": True,
+            "ignore_column_names": True,
+        },
+        {
+            "name": "count-sentences",
+            "prompt": (
+                "Count how many sentences are in the text "
+                "'First sentence here. Second one follows.' Treat the text as English. Return the "
+                "count in a column named n."
+            ),
+            "reference_sql": (
+                "SELECT count(*) AS n FROM nlp.sentences("
+                "(SELECT 1 AS id, 'First sentence here. Second one follows.' AS body), "
+                "id := 'id', lang := 'en')"
+            ),
+            "ignore_column_names": True,
+        },
+        {
+            "name": "extract-noun-chunks",
+            "prompt": (
+                "Extract the base noun phrases (noun chunks) from the English sentence "
+                "'The big red car drove down the long road.' Return them in a column named chunk, "
+                "one row per noun chunk. Treat the text as English."
+            ),
+            "reference_sql": (
+                "SELECT chunk FROM nlp.noun_chunks("
+                "(SELECT 1 AS id, 'The big red car drove down the long road.' AS body), "
+                "id := 'id', lang := 'en')"
+            ),
+            "unordered": True,
+            "ignore_column_names": True,
+        },
+    ]
+)
+
+
 _NLP_CATALOG = Catalog(
     name="nlp",
     default_schema="main",
@@ -149,6 +341,7 @@ _NLP_CATALOG = Catalog(
         ),
         "vgi.doc_llm": _CATALOG_DESCRIPTION_LLM,
         "vgi.doc_md": _CATALOG_DESCRIPTION_MD,
+        "vgi.agent_test_tasks": _AGENT_TEST_TASKS,
         "vgi.author": "Query.Farm",
         "vgi.copyright": "Copyright 2026 Query Farm LLC - https://query.farm",
         "vgi.license": "LicenseRef-QueryFarm-Source-Available-1.0",
@@ -187,6 +380,7 @@ _NLP_CATALOG = Catalog(
                 "vgi.doc_llm": _SCHEMA_DESCRIPTION_LLM,
                 "vgi.doc_md": _SCHEMA_DESCRIPTION_MD,
                 "vgi.example_queries": _SCHEMA_EXAMPLE_QUERIES,
+                "vgi.categories": _SCHEMA_CATEGORIES,
             },
             functions=[*SCALAR_FUNCTIONS, *TABLE_FUNCTIONS],
         ),

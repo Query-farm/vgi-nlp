@@ -257,6 +257,7 @@ class Entities(_ExplodeFunction):
                 "named entity recognition, ner, entities, people organizations places, "
                 "person org gpe date money, extract entities, spacy",
                 _SRC,
+                "extraction",
             ),
             "vgi.result_columns_md": (
                 "| column | type | description |\n"
@@ -336,6 +337,7 @@ class Tokens(_ExplodeFunction):
                 "tokenize, tokenization, tokens, part of speech, pos tagging, lemma, "
                 "dependency parse, stop word flag, spacy",
                 _SRC,
+                "extraction",
             ),
             "vgi.result_columns_md": (
                 "| column | type | description |\n"
@@ -418,6 +420,7 @@ class Sentences(_ExplodeFunction):
                 "sentence segmentation, sentence splitting, sentences, sentence tokenizer, "
                 "chunking, sbd, embeddings chunks, spacy",
                 _SRC,
+                "extraction",
             ),
             "vgi.result_columns_md": (
                 "| column | type | description |\n"
@@ -486,6 +489,7 @@ class NounChunks(_ExplodeFunction):
                 "noun chunks, noun phrases, keyword extraction, topic candidates, key phrases, "
                 "phrase extraction, np chunking, spacy",
                 _SRC,
+                "extraction",
             ),
             "vgi.result_columns_md": (
                 "| column | type | description |\n"

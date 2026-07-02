@@ -87,3 +87,17 @@ warn_unused_ignores = true
 # Genuinely untyped third-party libraries (no stubs published).
 module = ["spacy.*", "fasttext.*", "vaderSentiment.*"]
 ignore_missing_imports = true
+
+[tool.vgi-lint-check.execution]
+# This worker loads a spaCy pipeline (+ fastText) per process. The VGI worker
+# pool cold-loads those models on a fresh pool worker, so an executable example
+# that lands on a cold worker pays a one-time ~15-25s model-load before the
+# (millisecond) inference — see CLAUDE.md sharp-edge #4. Serialize example
+# execution (the worker is single-model, CPU-bound: parallel cursors just
+# contend and time out), widen the per-query cap to cover a cold load, and raise
+# the slow-example threshold so the expected cold-load window is not flagged as
+# CI bloat (VGI901/906/908). Inference itself is fast; this only accommodates the
+# one-time model load.
+concurrency = 1
+timeout = 60
+slow_seconds = 30

@@ -92,6 +92,7 @@ class DetectLang(ScalarFunction):
             "detect language, language identification, language detection, langid, lid, "
             "iso-639, locale, fasttext, what language",
             _SRC,
+            "language-id",
         )
 
     @classmethod
@@ -139,6 +140,7 @@ class DetectLangConf(ScalarFunction):
             "language confidence, langid confidence, detection probability, language score, "
             "fasttext confidence, certainty, threshold",
             _SRC,
+            "language-id",
         )
 
     @classmethod
@@ -192,6 +194,7 @@ class Sentiment(ScalarFunction):
             "`nlp.sentiment_label`.",
             "sentiment, sentiment analysis, vader, opinion, polarity, mood, positive negative, compound score, reviews",
             _SRC,
+            "sentiment",
         )
 
     @classmethod
@@ -240,6 +243,7 @@ class SentimentLabel(ScalarFunction):
             "sentiment label, sentiment class, positive negative neutral, neg neu pos, "
             "polarity bucket, vader, opinion category",
             _SRC,
+            "sentiment",
         )
 
     @classmethod
@@ -305,6 +309,7 @@ class Lemmatize(ScalarFunction):
             "lemmatize, lemmatization, lemma, dictionary form, base form, stemming, normalize "
             "words, spacy, text cleaning",
             _SRC,
+            "text-cleaning",
         )
 
     @classmethod
@@ -332,26 +337,26 @@ class LemmatizeLang(ScalarFunction):
         tags = object_tags(
             "Lemmatize Text (Pinned Language)",
             "Reduce every token to its lemma and return them space-joined, using the spaCy "
-            "pipeline for the **pinned** ISO-639 language instead of per-row auto-detection.\n\n"
+            "pipeline for the **pinned** ISO-639 language instead of per-row auto-detection. "
+            "It runs that language's default pipeline (e.g. `en` uses `en_core_web_sm`).\n\n"
             "**When to use:** monolingual corpora -- pinning `lang` (e.g. `'en'`) skips fastText "
             "language detection on every row, which is faster and avoids mis-detection on short "
             "or ambiguous strings.\n\n"
             "**Inputs:** a VARCHAR text column and a constant ISO-639 `lang` code. **Output:** a "
             "VARCHAR of space-joined lemmas. NULL/empty text yields NULL; an unknown/unsupported "
-            "language (no installed pipeline) also yields NULL. Use the `(text, lang, model)` "
-            "overload to name a specific spaCy model.",
+            "language (no installed pipeline) also yields NULL.",
             "# lemmatize(text, lang)\n\n"
             "Like `lemmatize(text)`, but the spaCy pipeline language is fixed to the supplied "
-            "ISO-639 code rather than auto-detected.\n\n"
+            "ISO-639 code rather than auto-detected, running that language's default pipeline.\n\n"
             "```sql\n"
             "SELECT nlp.lemmatize(body, 'en') FROM reviews;\n"
             "```\n\n"
             "Prefer this overload whenever the column is known to be a single language: it is "
-            "faster and more reliable than auto-detect. Add a third `model` argument to override "
-            "the default spaCy model for that language.",
+            "faster and more reliable than auto-detect.",
             "lemmatize language, lemmatize pinned, lemma, dictionary form, spacy pipeline, "
             "iso-639, monolingual, text cleaning",
             _SRC,
+            "text-cleaning",
         )
 
     @classmethod
@@ -399,6 +404,7 @@ class LemmatizeModel(ScalarFunction):
             "lemmatize model, custom spacy model, en_core_web_sm, en_core_web_trf, lemma, "
             "explicit model, text cleaning, pipeline",
             _SRC,
+            "text-cleaning",
         )
 
     @classmethod
@@ -447,6 +453,7 @@ class StripStopwords(ScalarFunction):
             "stop words, stopword removal, remove stopwords, filter words, content words, "
             "text cleaning, preprocessing, spacy",
             _SRC,
+            "text-cleaning",
         )
 
     @classmethod
@@ -475,25 +482,27 @@ class StripStopwordsLang(ScalarFunction):
             "Strip Stop-Words (Pinned Language)",
             "Drop stop-words and punctuation and return the surviving tokens space-joined, "
             "using the spaCy stop-word list for the **pinned** ISO-639 language instead of "
-            "per-row auto-detection.\n\n"
+            "per-row auto-detection. It runs that language's default pipeline (e.g. `en` uses "
+            "`en_core_web_sm`).\n\n"
             "**When to use:** monolingual corpora -- pinning `lang` (e.g. `'en'`) skips fastText "
             "detection on every row, which is faster and avoids mis-detection on short strings."
             "\n\n"
             "**Inputs:** a VARCHAR text column and a constant ISO-639 `lang` code. **Output:** a "
             "VARCHAR of the kept tokens. NULL/empty text yields NULL; an unsupported language "
-            "(no installed pipeline) also yields NULL. Use the `(text, lang, model)` overload "
-            "to name a specific spaCy model.",
+            "(no installed pipeline) also yields NULL.",
             "# strip_stopwords(text, lang)\n\n"
             "Like `strip_stopwords(text)`, but the spaCy stop-word list is fixed to the supplied "
-            "ISO-639 language rather than auto-detected.\n\n"
+            "ISO-639 language rather than auto-detected, running that language's default "
+            "pipeline.\n\n"
             "```sql\n"
             "SELECT nlp.strip_stopwords(body, 'en') FROM reviews;\n"
             "```\n\n"
             "Prefer this overload for single-language columns: it is faster and more reliable "
-            "than auto-detect. A third `model` argument overrides the default spaCy model.",
+            "than auto-detect.",
             "stop words pinned, remove stopwords language, filter words, content words, "
             "iso-639, monolingual, text cleaning, spacy",
             _SRC,
+            "text-cleaning",
         )
 
     @classmethod
@@ -539,6 +548,7 @@ class StripStopwordsModel(ScalarFunction):
             "stop words model, custom spacy model, remove stopwords, en_core_web_sm, "
             "explicit model, content words, text cleaning",
             _SRC,
+            "text-cleaning",
         )
 
     @classmethod
@@ -587,6 +597,7 @@ class Normalize(ScalarFunction):
             "normalize, canonicalize, unicode nfkc, casefold, lowercase, collapse whitespace, "
             "dedup, matching, text cleaning",
             _SRC,
+            "text-cleaning",
         )
 
     @classmethod

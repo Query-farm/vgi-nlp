@@ -11,3 +11,5 @@ models/
 *.coverage
 .coverage
 .test-models/
+# vgi-lint --ai verdict caches (doc-review / simulate)
+.vgi-*-cache.json

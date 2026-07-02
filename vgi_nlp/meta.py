@@ -36,16 +36,24 @@ def object_tags(
     doc_md: str,
     keywords: str,
     relative_path: str,
+    category: str = "",
 ) -> dict[str, str]:
     """Build the standard per-object discovery/description tags.
 
     ``relative_path`` is the implementing file relative to the repo root; it is
     retained for call-site documentation but no longer emitted as a per-object
     ``vgi.source_url`` (VGI139 keeps ``source_url`` on the catalog only).
+
+    ``category`` is the object's primary ``vgi.category`` -- it must name one of
+    the categories declared in the schema's ``vgi.categories`` registry (VGI409);
+    every object in a schema that declares categories should carry one (VGI411).
     """
-    return {
+    tags = {
         "vgi.title": title,
         "vgi.doc_llm": doc_llm,
         "vgi.doc_md": doc_md,
         "vgi.keywords": keywords_array(keywords),
     }
+    if category:
+        tags["vgi.category"] = category
+    return tags
