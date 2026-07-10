@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#     "vgi-python[http]>=0.9.0",
+#     "vgi-python[http]>=0.14.0",
 #     "spacy>=3.7",
 #     "fasttext-wheel",
 #     "vaderSentiment",
@@ -39,11 +39,11 @@ import json
 from typing import Any
 
 from vgi import Worker
-from vgi.catalog import Catalog, Schema
+from vgi.catalog import Catalog, Schema, Table
 
 from vgi_nlp import pipelines
 from vgi_nlp.scalars import SCALAR_FUNCTIONS
-from vgi_nlp.tables import TABLE_FUNCTIONS
+from vgi_nlp.tables import TABLE_FUNCTIONS, SupportedLanguages
 
 _CATALOG_DESCRIPTION_LLM = (
     "Classical, non-LLM natural-language processing over text columns: detect each "
@@ -165,6 +165,11 @@ _SCHEMA_CATEGORIES = json.dumps(
                 "tokens, sentences, and noun chunks."
             ),
         },
+        {
+            "name": "discovery",
+            "title": "Capability discovery",
+            "description": "Browse what the worker supports -- e.g. the languages that have a spaCy pipeline.",
+        },
     ]
 )
 
@@ -185,32 +190,41 @@ _AGENT_TEST_TASKS = json.dumps(
                 "'Bonjour tout le monde, comment allez-vous aujourd''hui?' and return its "
                 "two-letter ISO-639 language code in a column named lang."
             ),
+            # Deterministic string output (fastText lid.176 is deterministic).
             "reference_sql": (
-                "SELECT nlp.detect_lang('Bonjour tout le monde, comment allez-vous aujourd''hui?') AS lang"
+                "SELECT nlp.main.detect_lang('Bonjour tout le monde, comment allez-vous aujourd''hui?') AS lang"
             ),
             "ignore_column_names": True,
         },
         {
-            "name": "language-code-and-confidence",
+            "name": "confident-english",
             "prompt": (
-                "For the text 'The quick brown fox jumps over the lazy dog', return both its "
-                "detected ISO-639 language code and the detector's confidence score, as two "
-                "columns named lang and conf."
+                "Decide whether the language detector is highly confident (more than 90%) that "
+                "the text 'The quick brown fox jumps over the lazy dog' is English. Return a "
+                "single boolean column named confident_english that is true only when the "
+                "detected ISO-639 code is 'en' and the detection confidence exceeds 0.9."
             ),
+            # Float confidence reframed as a stable boolean threshold predicate (VGI920).
             "reference_sql": (
-                "SELECT nlp.detect_lang('The quick brown fox jumps over the lazy dog') AS lang, "
-                "nlp.detect_lang_conf('The quick brown fox jumps over the lazy dog') AS conf"
+                "SELECT (nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') = 'en' "
+                "AND nlp.main.detect_lang_conf('The quick brown fox jumps over the lazy dog') > 0.9) "
+                "AS confident_english"
             ),
             "ignore_column_names": True,
         },
         {
-            "name": "sentiment-score",
+            "name": "sentiment-is-positive",
             "prompt": (
-                "Compute the sentiment polarity score (a number in [-1, 1]) of the sentence "
-                "'I absolutely love this product, it works wonderfully!' and return it in a "
-                "column named score."
+                "Decide whether the sentence 'I absolutely love this product, it works "
+                "wonderfully!' expresses positive sentiment. Using the compound sentiment score, "
+                "return a single boolean column named is_positive that is true when the score is "
+                "above the standard positive threshold of 0.05."
             ),
-            "reference_sql": ("SELECT nlp.sentiment('I absolutely love this product, it works wonderfully!') AS score"),
+            # Float score reframed as a stable boolean threshold predicate (VGI920).
+            "reference_sql": (
+                "SELECT nlp.main.sentiment('I absolutely love this product, it works wonderfully!') > 0.05 "
+                "AS is_positive"
+            ),
             "ignore_column_names": True,
         },
         {
@@ -220,7 +234,10 @@ _AGENT_TEST_TASKS = json.dumps(
                 "'This is the worst experience I have ever had' into a coarse label of "
                 "negative, neutral, or positive, and return the label in a column named mood."
             ),
-            "reference_sql": ("SELECT nlp.sentiment_label('This is the worst experience I have ever had') AS mood"),
+            # Deterministic coarse label (neg/neu/pos) from fixed VADER thresholds.
+            "reference_sql": (
+                "SELECT nlp.main.sentiment_label('This is the worst experience I have ever had') AS mood"
+            ),
             "ignore_column_names": True,
         },
         {
@@ -230,88 +247,190 @@ _AGENT_TEST_TASKS = json.dumps(
                 "applying Unicode normalization, lowercasing, and collapsing runs of whitespace. "
                 "Return it in a column named canonical."
             ),
-            "reference_sql": "SELECT nlp.normalize('  Cafe   DELUXE  ') AS canonical",
+            # Pure-Python, fully deterministic string transform.
+            "reference_sql": "SELECT nlp.main.normalize('  Cafe   DELUXE  ') AS canonical",
             "ignore_column_names": True,
         },
         {
-            "name": "lemmatize-english",
+            "name": "lemmatize-contains-base-form",
             "prompt": (
-                "Lemmatize the English sentence 'The cats were running quickly' by reducing each "
-                "word to its dictionary base form, and return the space-joined lemmas in a column "
-                "named lemmas. Treat the text as English."
+                "Lemmatize the English sentence 'The cats were running quickly', reducing each "
+                "word to its dictionary base form. Decide whether the lemmatized result contains "
+                "the base form 'run'. Return a single boolean column named has_run. Treat the "
+                "text as English."
             ),
-            "reference_sql": "SELECT nlp.lemmatize('The cats were running quickly', 'en') AS lemmas",
+            # Model-dependent lemma string reframed as a stable containment predicate (VGI920).
+            "reference_sql": (
+                "SELECT nlp.main.lemmatize('The cats were running quickly', 'en') LIKE '%run%' AS has_run"
+            ),
             "ignore_column_names": True,
         },
         {
-            "name": "strip-stopwords",
+            "name": "strip-stopwords-keeps-content",
             "prompt": (
                 "Remove English stop-words and punctuation from the sentence "
-                "'this is a really great movie' and return the remaining content words, "
-                "space-joined, in a column named kept. Treat the text as English."
+                "'this is a really great movie'. Decide whether the content word 'great' survives "
+                "the stop-word removal. Return a single boolean column named keeps_great. Treat "
+                "the text as English."
             ),
-            "reference_sql": "SELECT nlp.strip_stopwords('this is a really great movie', 'en') AS kept",
-            "ignore_column_names": True,
-        },
-        {
-            "name": "count-named-entities",
-            "prompt": (
-                "Count how many named entities are found in the sentence "
-                "'Apple was founded by Steve Jobs in California.' Treat the text as English. "
-                "Return the count in a column named n."
-            ),
+            # Model-dependent token string reframed as a stable containment predicate (VGI920).
             "reference_sql": (
-                "SELECT count(*) AS n FROM nlp.entities("
-                "(SELECT 1 AS id, 'Apple was founded by Steve Jobs in California.' AS body), "
-                "id := 'id', lang := 'en')"
+                "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') LIKE '%great%' AS keeps_great"
             ),
             "ignore_column_names": True,
         },
         {
-            "name": "tokens-with-pos",
+            "name": "has-named-entities",
             "prompt": (
-                "For the English sentence 'The quick brown fox jumps.', list each token together "
-                "with its part-of-speech tag. Return columns token and pos, one row per token. "
-                "Treat the text as English."
+                "Decide whether the sentence 'Apple was founded by Steve Jobs in California.' "
+                "contains at least two named entities. Treat the text as English. Return a single "
+                "boolean column named has_entities."
             ),
+            # Model-dependent entity count reframed as a stable threshold predicate (VGI920).
             "reference_sql": (
-                "SELECT token, pos FROM nlp.tokens("
-                "(SELECT 1 AS id, 'The quick brown fox jumps.' AS body), id := 'id', lang := 'en')"
+                "SELECT count(*) >= 2 AS has_entities FROM nlp.main.entities("
+                "(SELECT 'Apple was founded by Steve Jobs in California.' AS body), lang := 'en')"
             ),
-            "unordered": True,
             "ignore_column_names": True,
         },
         {
-            "name": "count-sentences",
+            "name": "tokenizes-into-words",
             "prompt": (
-                "Count how many sentences are in the text "
-                "'First sentence here. Second one follows.' Treat the text as English. Return the "
-                "count in a column named n."
+                "Tokenize the English sentence 'The quick brown fox jumps.' into individual "
+                "tokens with part-of-speech tags. Decide whether it yields more than three "
+                "tokens. Treat the text as English. Return a single boolean column named "
+                "many_tokens."
             ),
+            # Model-dependent tokenization reframed as a stable threshold predicate (VGI920).
             "reference_sql": (
-                "SELECT count(*) AS n FROM nlp.sentences("
-                "(SELECT 1 AS id, 'First sentence here. Second one follows.' AS body), "
-                "id := 'id', lang := 'en')"
+                "SELECT count(*) > 3 AS many_tokens FROM nlp.main.tokens("
+                "(SELECT 'The quick brown fox jumps.' AS body), lang := 'en')"
             ),
             "ignore_column_names": True,
         },
         {
-            "name": "extract-noun-chunks",
+            "name": "counts-two-sentences",
+            "prompt": (
+                "Split the text 'First sentence here. Second one follows.' into sentences and "
+                "decide whether it contains exactly two sentences. Treat the text as English. "
+                "Return a single boolean column named two_sentences."
+            ),
+            # Sentence segmentation is stable on clear boundaries; compared as a boolean.
+            "reference_sql": (
+                "SELECT count(*) = 2 AS two_sentences FROM nlp.main.sentences("
+                "(SELECT 'First sentence here. Second one follows.' AS body), lang := 'en')"
+            ),
+            "ignore_column_names": True,
+        },
+        {
+            "name": "has-noun-chunks",
             "prompt": (
                 "Extract the base noun phrases (noun chunks) from the English sentence "
-                "'The big red car drove down the long road.' Return them in a column named chunk, "
-                "one row per noun chunk. Treat the text as English."
+                "'The big red car drove down the long road.' and decide whether it yields at "
+                "least two noun chunks. Treat the text as English. Return a single boolean column "
+                "named has_chunks."
             ),
+            # Model-dependent noun-chunk count reframed as a stable threshold predicate (VGI920).
             "reference_sql": (
-                "SELECT chunk FROM nlp.noun_chunks("
-                "(SELECT 1 AS id, 'The big red car drove down the long road.' AS body), "
-                "id := 'id', lang := 'en')"
+                "SELECT count(*) >= 2 AS has_chunks FROM nlp.main.noun_chunks("
+                "(SELECT 'The big red car drove down the long road.' AS body), lang := 'en')"
             ),
-            "unordered": True,
+            "ignore_column_names": True,
+        },
+        {
+            "name": "english-pipeline-supported",
+            "prompt": (
+                "Determine whether this worker has a default spaCy pipeline for English (ISO-639 "
+                "code 'en'), i.e. whether English text can be lemmatized and run through NER "
+                "without naming a custom model. Return a single boolean column named supported."
+            ),
+            # Browses the supported_languages discovery table; stable boolean.
+            "reference_sql": (
+                "SELECT count(*) > 0 AS supported FROM nlp.main.supported_languages() WHERE lang_code = 'en'"
+            ),
             "ignore_column_names": True,
         },
     ]
 )
+
+
+# VGI146/VGI311: `supported_languages` takes no arguments and always returns the
+# same rows, so it is also exposed as a regular, browsable table (function-backed
+# -- DuckDB scans the `SupportedLanguages` table function) that an agent can read
+# with `SELECT * FROM nlp.main.supported_languages` -- no parentheses, no arguments
+# to guess -- in addition to calling `supported_languages()`. The table's schema is
+# derived from the function's bind(), so the two stay in lockstep. `lang_code` is a
+# NOT NULL natural primary key (VGI806/VGI807).
+_SUPPORTED_LANGUAGES_DOC_LLM = (
+    "## `supported_languages` (table)\n\n"
+    "One row per language that has a default spaCy pipeline, so the extraction table functions "
+    "and the `lemmatize` / `strip_stopwords` scalars can process it without naming a model. "
+    "Columns:\n\n"
+    "- `lang_code` (`VARCHAR`, primary key) -- the ISO-639 code you pass as the `lang` argument "
+    "(or that per-row auto-detect must resolve to).\n"
+    "- `spacy_model` (`VARCHAR`) -- the default small spaCy pipeline that backs it.\n\n"
+    "Read this table directly to discover which languages can be lemmatized, tokenized, or run "
+    "through NER. Note `detect_lang` recognizes far more languages (fastText covers 176) than have "
+    "a spaCy pipeline installed -- this table lists only the latter. Backed by the "
+    "identically-named table function, so the rows are identical."
+)
+
+_SUPPORTED_LANGUAGES_DOC_MD = (
+    "# `supported_languages`\n\n"
+    "Discovery table of every language the worker has a default spaCy pipeline for, exposed as a "
+    "regular table you can read without parentheses.\n\n"
+    "## Columns\n\n"
+    "- `lang_code` (VARCHAR, primary key) -- ISO-639 code accepted by the `lang` argument.\n"
+    "- `spacy_model` (VARCHAR) -- the default small spaCy model backing it.\n\n"
+    "Language detection (`detect_lang`) spans 176 languages via fastText, but only the languages "
+    "listed here can be lemmatized, tokenized, or run through NER without naming a custom model. "
+    "See the table's example queries for ready-to-run SQL."
+)
+
+_DISCOVERY_TABLES: list[Table] = [
+    Table(
+        name="supported_languages",
+        function=SupportedLanguages,
+        comment="Languages with a default spaCy pipeline: (lang_code, spacy_model) -- discovery table.",
+        primary_key=(("lang_code",),),
+        not_null=("lang_code", "spacy_model"),
+        column_comments={
+            "lang_code": "ISO-639 language code accepted by the `lang` argument.",
+            "spacy_model": "Default small spaCy pipeline that backs this language.",
+        },
+        tags={
+            "vgi.title": "Supported Languages Table",
+            "vgi.doc_llm": _SUPPORTED_LANGUAGES_DOC_LLM,
+            "vgi.doc_md": _SUPPORTED_LANGUAGES_DOC_MD,
+            "vgi.keywords": json.dumps(
+                [
+                    "supported languages",
+                    "languages",
+                    "iso-639",
+                    "spacy models",
+                    "language support",
+                    "capabilities",
+                    "discovery",
+                    "which languages",
+                ]
+            ),
+            "vgi.category": "discovery",
+            "domain": "text-analytics",
+            "vgi.example_queries": json.dumps(
+                [
+                    {
+                        "description": "Count the languages that have a default spaCy pipeline.",
+                        "sql": "SELECT count(*) AS n_languages FROM nlp.main.supported_languages",
+                    },
+                    {
+                        "description": "Look up the default spaCy model for English.",
+                        "sql": "SELECT spacy_model FROM nlp.main.supported_languages WHERE lang_code = 'en'",
+                    },
+                ]
+            ),
+        },
+    ),
+]
 
 
 _NLP_CATALOG = Catalog(
@@ -383,6 +502,7 @@ _NLP_CATALOG = Catalog(
                 "vgi.categories": _SCHEMA_CATEGORIES,
             },
             functions=[*SCALAR_FUNCTIONS, *TABLE_FUNCTIONS],
+            tables=list(_DISCOVERY_TABLES),
         ),
     ],
 )

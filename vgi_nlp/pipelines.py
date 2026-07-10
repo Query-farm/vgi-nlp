@@ -279,6 +279,23 @@ def sentiment_label_from_score(score: float | None) -> str | None:
 
 
 # ---------------------------------------------------------------------------
+# Capability discovery
+# ---------------------------------------------------------------------------
+
+
+def supported_languages() -> list[tuple[str, str]]:
+    """Return the languages that have a default spaCy pipeline, sorted by code.
+
+    Each item is ``(lang_code, spacy_model)``: the ISO-639 code you can pin via
+    the ``lang`` argument (or that per-row auto-detect must resolve to) and the
+    default small spaCy model that backs it. Sourced directly from
+    ``_DEFAULT_SPACY_MODEL`` so the discovery table can never drift from the
+    behaviour of :func:`_resolve_model_name`.
+    """
+    return sorted(_DEFAULT_SPACY_MODEL.items())
+
+
+# ---------------------------------------------------------------------------
 # Startup warm-up
 # ---------------------------------------------------------------------------
 

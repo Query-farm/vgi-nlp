@@ -66,7 +66,7 @@ class DetectLang(ScalarFunction):
         description = "Detect the dominant language of each text (ISO-639 code, fastText lid.176)"
         categories = ["language-id"]
         examples = _ex(
-            "SELECT nlp.detect_lang('The quick brown fox jumps over the lazy dog') AS lang",
+            "SELECT nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') AS lang",
             "Identify the language of a literal string",
         )
         tags = object_tags(
@@ -82,10 +82,8 @@ class DetectLang(ScalarFunction):
             "with `detect_lang_conf` and threshold on confidence when accuracy matters.",
             "# detect_lang\n\n"
             "Returns the ISO-639-1 language code of each text value, computed with the "
-            "fastText `lid.176` identifier.\n\n"
-            "```sql\n"
-            "SELECT nlp.detect_lang('Bonjour le monde');  -- 'fr'\n"
-            "```\n\n"
+            "fastText `lid.176` identifier -- for example `fr` for `Bonjour le monde` and "
+            "`en` for a plain English sentence.\n\n"
             "Use it to segment a multilingual column before language-specific processing. "
             "Combine with `nlp.detect_lang_conf` to discard low-confidence guesses; very short "
             "snippets are inherently hard to classify.",
@@ -115,7 +113,7 @@ class DetectLangConf(ScalarFunction):
         description = "Confidence (0-1) of the detected language (fastText lid.176)"
         categories = ["language-id"]
         examples = _ex(
-            "SELECT nlp.detect_lang_conf('The quick brown fox') AS conf",
+            "SELECT nlp.main.detect_lang_conf('The quick brown fox') AS conf",
             "Confidence of the top language guess for a literal string",
         )
         tags = object_tags(
@@ -129,12 +127,8 @@ class DetectLangConf(ScalarFunction):
             "~1.00001), so do not assert a strict `<= 1.0` upper bound on the result.",
             "# detect_lang_conf\n\n"
             "Returns how confident the fastText `lid.176` model is in the language it picked "
-            "for each text -- a float near the `[0, 1]` range.\n\n"
-            "```sql\n"
-            "SELECT body\n"
-            "FROM docs\n"
-            "WHERE nlp.detect_lang_conf(body) > 0.8;  -- confidently-identified rows only\n"
-            "```\n\n"
+            "for each text -- a float near the `[0, 1]` range. A common pattern is to keep only "
+            "confidently-identified rows by filtering on `nlp.detect_lang_conf(body) > 0.8`.\n\n"
             "Use alongside `nlp.detect_lang`. Note the confidence can read slightly above 1.0 "
             "for some inputs, so avoid a strict upper-bound assertion.",
             "language confidence, langid confidence, detection probability, language score, "
@@ -168,7 +162,7 @@ class Sentiment(ScalarFunction):
         description = "Sentiment score in [-1, 1] (VADER lexicon; tuned for English/social text)"
         categories = ["sentiment"]
         examples = _ex(
-            "SELECT nlp.sentiment('I absolutely love this, it is fantastic!') AS score",
+            "SELECT nlp.main.sentiment('I absolutely love this, it is fantastic!') AS score",
             "Score the sentiment of a literal English string",
         )
         tags = object_tags(
@@ -183,12 +177,9 @@ class Sentiment(ScalarFunction):
             "it understands emphasis, negation, and emoticons but is not a translator -- score "
             "non-English text only after detecting/translating it.",
             "# sentiment\n\n"
-            "Returns the VADER compound sentiment score in `[-1, 1]` for each text.\n\n"
-            "```sql\n"
-            "SELECT product, avg(nlp.sentiment(body)) AS mood\n"
-            "FROM reviews\n"
-            "GROUP BY product;\n"
-            "```\n\n"
+            "Returns the VADER compound sentiment score in `[-1, 1]` for each text. A typical "
+            "use is per-group opinion tracking -- e.g. the average `nlp.sentiment(body)` per "
+            "product, so you can rank which products reviewers feel best about.\n\n"
             "VADER is purpose-built for English social text (handling negation, intensifiers, "
             "and emoji). For a coarse neg/neu/pos bucket instead of a number, use "
             "`nlp.sentiment_label`.",
@@ -217,7 +208,7 @@ class SentimentLabel(ScalarFunction):
         description = "Coarse sentiment label: neg / neu / pos (VADER thresholds)"
         categories = ["sentiment"]
         examples = _ex(
-            "SELECT nlp.sentiment_label('This is the worst experience ever') AS mood",
+            "SELECT nlp.main.sentiment_label('This is the worst experience ever') AS mood",
             "Bucket a literal string into neg / neu / pos",
         )
         tags = object_tags(
@@ -232,12 +223,8 @@ class SentimentLabel(ScalarFunction):
             "you need the underlying magnitude, call `nlp.sentiment` instead.",
             "# sentiment_label\n\n"
             "Returns a coarse sentiment class -- `neg`, `neu`, or `pos` -- derived from the "
-            "VADER compound score.\n\n"
-            "```sql\n"
-            "SELECT nlp.sentiment_label(body) AS mood, count(*)\n"
-            "FROM reviews\n"
-            "GROUP BY 1;\n"
-            "```\n\n"
+            "VADER compound score by thresholding at +/-0.05. A common use is to tally how many "
+            "reviews fall into each `nlp.sentiment_label(body)` bucket for a dashboard.\n\n"
             "Use this when a label is more convenient than the numeric `nlp.sentiment` score, "
             "for example to tally how many reviews fall into each mood bucket.",
             "sentiment label, sentiment class, positive negative neutral, neg neu pos, "
@@ -283,7 +270,7 @@ class Lemmatize(ScalarFunction):
         description = "Lemmatize each text (tokens replaced by their dictionary form); language auto-detected"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.lemmatize('The cats were running quickly') AS lemmas",
+            "SELECT nlp.main.lemmatize('The cats were running quickly') AS lemmas",
             "Lemmatize a literal string with per-row language auto-detect",
         )
         tags = object_tags(
@@ -299,10 +286,8 @@ class Lemmatize(ScalarFunction):
             "corpus is monolingual to skip per-row detection and its throughput cost.",
             "# lemmatize(text)\n\n"
             "Lemmatizes each text with spaCy, auto-detecting the language per row, and returns "
-            "the space-joined lemmas.\n\n"
-            "```sql\n"
-            "SELECT nlp.lemmatize(body) FROM reviews;  -- 'the cat be run quickly'\n"
-            "```\n\n"
+            "the space-joined lemmas -- e.g. `The cats were running quickly` becomes "
+            "`the cat be run quickly`.\n\n"
             "For monolingual data prefer `nlp.lemmatize(text, 'en')` to pin the language and "
             "avoid per-row detection overhead; pass a third argument to choose a specific spaCy "
             "model.",
@@ -331,7 +316,7 @@ class LemmatizeLang(ScalarFunction):
         description = "Lemmatize each text with the pipeline language pinned (ISO-639 code)"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.lemmatize('The cats were running quickly', 'en') AS lemmas",
+            "SELECT nlp.main.lemmatize('The cats were running quickly', 'en') AS lemmas",
             "Lemmatize a literal string with the language pinned to English",
         )
         tags = object_tags(
@@ -347,10 +332,8 @@ class LemmatizeLang(ScalarFunction):
             "language (no installed pipeline) also yields NULL.",
             "# lemmatize(text, lang)\n\n"
             "Like `lemmatize(text)`, but the spaCy pipeline language is fixed to the supplied "
-            "ISO-639 code rather than auto-detected, running that language's default pipeline.\n\n"
-            "```sql\n"
-            "SELECT nlp.lemmatize(body, 'en') FROM reviews;\n"
-            "```\n\n"
+            "ISO-639 code rather than auto-detected, running that language's default pipeline. "
+            "For example, pinning `lang` to `en` runs the English pipeline on every row.\n\n"
             "Prefer this overload whenever the column is known to be a single language: it is "
             "faster and more reliable than auto-detect.",
             "lemmatize language, lemmatize pinned, lemma, dictionary form, spacy pipeline, "
@@ -379,7 +362,7 @@ class LemmatizeModel(ScalarFunction):
         description = "Lemmatize each text with an explicit spaCy model (e.g. en_core_web_sm)"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.lemmatize('The cats were running quickly', 'en', 'en_core_web_sm') AS lemmas",
+            "SELECT nlp.main.lemmatize('The cats were running quickly', 'en', 'en_core_web_sm') AS lemmas",
             "Lemmatize a literal string with an explicit spaCy model",
         )
         tags = object_tags(
@@ -395,10 +378,8 @@ class LemmatizeModel(ScalarFunction):
             "environment, or the call errors at load time.",
             "# lemmatize(text, lang, model)\n\n"
             "Lemmatizes each text using an explicitly named spaCy model, giving full control "
-            "over accuracy/speed trade-offs.\n\n"
-            "```sql\n"
-            "SELECT nlp.lemmatize(body, 'en', 'en_core_web_sm') FROM reviews;\n"
-            "```\n\n"
+            "over accuracy/speed trade-offs -- for instance naming `en_core_web_sm` for English "
+            "or a larger `en_core_web_trf` transformer model.\n\n"
             "The model must be present in the worker's Python environment. When the `lang` "
             "argument is empty the model name alone selects the pipeline.",
             "lemmatize model, custom spacy model, en_core_web_sm, en_core_web_trf, lemma, "
@@ -428,7 +409,7 @@ class StripStopwords(ScalarFunction):
         description = "Remove stop-words and punctuation, returning the rest joined; language auto-detected"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.strip_stopwords('this is a really great movie') AS kept",
+            "SELECT nlp.main.strip_stopwords('this is a really great movie') AS kept",
             "Drop stop-words from a literal string with per-row auto-detect",
         )
         tags = object_tags(
@@ -444,10 +425,8 @@ class StripStopwords(ScalarFunction):
             "detection.",
             "# strip_stopwords(text)\n\n"
             "Removes stop-words and punctuation, returning the remaining content tokens joined "
-            "by spaces; the language is auto-detected per row.\n\n"
-            "```sql\n"
-            "SELECT nlp.strip_stopwords(body) FROM reviews;  -- 'really great movie'\n"
-            "```\n\n"
+            "by spaces; the language is auto-detected per row -- e.g. `this is a really great "
+            "movie` becomes `really great movie`.\n\n"
             "For single-language columns prefer `nlp.strip_stopwords(text, 'en')` to pin the "
             "language and skip detection; a third argument selects a specific spaCy model.",
             "stop words, stopword removal, remove stopwords, filter words, content words, "
@@ -475,7 +454,7 @@ class StripStopwordsLang(ScalarFunction):
         description = "Remove stop-words and punctuation with the pipeline language pinned (ISO-639)"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.strip_stopwords('this is a really great movie', 'en') AS kept",
+            "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') AS kept",
             "Drop English stop-words from a literal string",
         )
         tags = object_tags(
@@ -493,10 +472,8 @@ class StripStopwordsLang(ScalarFunction):
             "# strip_stopwords(text, lang)\n\n"
             "Like `strip_stopwords(text)`, but the spaCy stop-word list is fixed to the supplied "
             "ISO-639 language rather than auto-detected, running that language's default "
-            "pipeline.\n\n"
-            "```sql\n"
-            "SELECT nlp.strip_stopwords(body, 'en') FROM reviews;\n"
-            "```\n\n"
+            "pipeline. For example, pinning `lang` to `en` applies the English stop-word list to "
+            "every row.\n\n"
             "Prefer this overload for single-language columns: it is faster and more reliable "
             "than auto-detect.",
             "stop words pinned, remove stopwords language, filter words, content words, "
@@ -525,7 +502,7 @@ class StripStopwordsModel(ScalarFunction):
         description = "Remove stop-words and punctuation with an explicit spaCy model"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.strip_stopwords('this is a really great movie', 'en', 'en_core_web_sm') AS kept",
+            "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en', 'en_core_web_sm') AS kept",
             "Drop stop-words from a literal string with an explicit spaCy model",
         )
         tags = object_tags(
@@ -539,10 +516,9 @@ class StripStopwordsModel(ScalarFunction):
             "text yields NULL. The named model must be installed in the worker's environment or "
             "the call errors at load time.",
             "# strip_stopwords(text, lang, model)\n\n"
-            "Removes stop-words and punctuation using an explicitly named spaCy model.\n\n"
-            "```sql\n"
-            "SELECT nlp.strip_stopwords(body, 'en', 'en_core_web_sm') FROM reviews;\n"
-            "```\n\n"
+            "Removes stop-words and punctuation using an explicitly named spaCy model -- for "
+            "instance `en_core_web_sm` for English, or a larger model already installed in the "
+            "worker.\n\n"
             "The model must be present in the worker's Python environment. When `lang` is empty "
             "the model name alone selects the pipeline.",
             "stop words model, custom spacy model, remove stopwords, en_core_web_sm, "
@@ -572,7 +548,7 @@ class Normalize(ScalarFunction):
         description = "Normalize text: Unicode NFKC, lowercase, and collapse whitespace"
         categories = ["cleaning"]
         examples = _ex(
-            "SELECT nlp.normalize('  Café   DELUXE\t—  ') AS canonical",
+            "SELECT nlp.main.normalize('  Café   DELUXE\t—  ') AS canonical",
             "Canonicalize a messy literal string for dedup / matching",
         )
         tags = object_tags(
@@ -588,10 +564,7 @@ class Normalize(ScalarFunction):
             "it is the cheapest function in the worker and always available.",
             "# normalize\n\n"
             "Returns a canonical form of each text: Unicode NFKC + casefold + whitespace "
-            "collapse.\n\n"
-            "```sql\n"
-            "SELECT nlp.normalize(body) FROM reviews;  -- 'café deluxe —'\n"
-            "```\n\n"
+            "collapse -- e.g. `  Cafe   DELUXE  ` becomes `cafe deluxe`.\n\n"
             "Use it to make free-text keys join and group reliably. Unlike the other cleaners "
             "this needs no model, so it runs everywhere with no setup.",
             "normalize, canonicalize, unicode nfkc, casefold, lowercase, collapse whitespace, "

@@ -27,13 +27,20 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Annotated, Any, cast
+from typing import Annotated, Any, ClassVar, cast
 
 import pyarrow as pa
 from vgi.arguments import Arg, TableInput
 from vgi.invocation import BindResponse
 from vgi.metadata import FunctionExample
-from vgi.table_function import BindParams, ProcessParams
+from vgi.table_function import (
+    BindParams,
+    ProcessParams,
+    TableCardinality,
+    TableFunctionGenerator,
+    bind_fixed_schema,
+    init_single_worker,
+)
 from vgi.table_in_out_function import TableInOutGenerator
 from vgi_rpc.rpc import OutputCollector
 
@@ -43,52 +50,61 @@ from .schema_utils import field
 
 _SRC = "vgi_nlp/tables.py"
 
-#: A self-contained input relation used by per-function examples so they
-#: bind/execute against the worker without depending on any pre-existing table.
+#: A self-contained, two-column input relation (an `id` join key plus the text)
+#: used by the `vgi.executable_examples` so they demonstrate the `id :=`
+#: passthrough end to end without depending on any pre-existing table.
 _DEMO_INPUT = "(SELECT 1 AS id, 'Apple unveiled the new iPhone in California yesterday. Critics loved it.' AS body)"
 
 
-#: Guaranteed-runnable, catalog-qualified examples (VGI509 / VGI906). Each `sql`
-#: is self-contained -- it builds its own one-row input relation inline -- so it
-#: executes against an attached `nlp` worker without any pre-existing table.
+#: Guaranteed-runnable, fully catalog-qualified examples (VGI509 / VGI906) that
+#: exercise the `id :=` passthrough. Each `sql` is self-contained -- it builds its
+#: own one-row input relation inline -- so it executes against an attached `nlp`
+#: worker without any pre-existing table. Fully qualified as
+#: `nlp.main.<fn>(...)` so they count for coverage and bind under `--execute`.
 #: `expected_result` is omitted on purpose (NER/token output is model-version
 #: dependent; the linter only needs each query to execute cleanly).
 _EXECUTABLE_EXAMPLES = json.dumps(
     [
         {
-            "description": "Extract named entities from a literal document.",
+            "description": "Extract named entities from a literal document, keyed back to its id.",
             "sql": (
-                "SELECT ent_text, label FROM nlp.entities("
+                "SELECT id, ent_text, label FROM nlp.main.entities("
                 "(SELECT 1 AS id, 'Apple was founded by Steve Jobs in California.' AS body), "
                 "id := 'id', lang := 'en')"
             ),
         },
         {
-            "description": "Tokenize a literal document with part-of-speech tags.",
+            "description": "Tokenize a literal document with part-of-speech tags, keyed back to its id.",
             "sql": (
-                "SELECT token, pos FROM nlp.tokens("
+                "SELECT id, token, pos FROM nlp.main.tokens("
                 "(SELECT 1 AS id, 'The quick brown fox jumps.' AS body), "
                 "id := 'id', lang := 'en')"
             ),
         },
         {
-            "description": "Split a literal document into sentences.",
+            "description": "Split a literal document into sentences, keyed back to its id.",
             "sql": (
-                "SELECT sent_index, sentence FROM nlp.sentences("
+                "SELECT id, sent_index, sentence FROM nlp.main.sentences("
                 "(SELECT 1 AS id, 'First sentence here. Second one follows.' AS body), "
                 "id := 'id', lang := 'en')"
             ),
         },
         {
-            "description": "Extract noun chunks from a literal document.",
+            "description": "Extract noun chunks from a literal document, keyed back to its id.",
             "sql": (
-                "SELECT chunk, root FROM nlp.noun_chunks("
+                "SELECT id, chunk, root FROM nlp.main.noun_chunks("
                 "(SELECT 1 AS id, 'The big red car drove down the long road.' AS body), "
                 "id := 'id', lang := 'en')"
             ),
         },
     ]
 )
+
+
+#: Column list for the four explode functions' `vgi.result_columns_schema`. Each
+#: entry mirrors the corresponding `emit_fields()` field exactly (name + DuckDB
+#: type + description), so VGI910 (declared schema matches DESCRIBE) holds for the
+#: no-id example projection the linter derives from `Meta.examples`.
 
 
 @dataclass(slots=True, frozen=True, kw_only=True)
@@ -102,12 +118,20 @@ class NlpTableArgs:
     model: Annotated[str, Arg("model", default="", doc="Override spaCy model name; '' = default for lang")]
 
 
-def _ex(name: str, extra: str = "") -> list[FunctionExample]:
-    args = f", {extra}" if extra else ""
+def _ex(name: str, projection: str, demo_input: str) -> list[FunctionExample]:
+    """One fully-qualified example that projects the columns that matter.
+
+    ``demo_input`` is a self-contained single-text-column `(SELECT '...' AS body)`
+    relation, so no `id :=` is passed and the returned columns are exactly the
+    function's `emit_fields()` -- which the declared `vgi.result_columns_schema`
+    mirrors (VGI910). Projecting named columns (not `SELECT *`) keeps the example
+    analytical rather than a bare dump (VGI514). The `id :=` passthrough is shown
+    separately in `vgi.executable_examples`.
+    """
     return [
         FunctionExample(
-            sql=f"SELECT * FROM nlp.{name}({_DEMO_INPUT}, id := 'id'{args})",
-            description=f"Explode a literal document into {name}",
+            sql=f"SELECT {projection} FROM nlp.main.{name}({demo_input}, lang := 'en')",
+            description=f"Explode a literal English document into {name}, projecting its key columns",
         )
     ]
 
@@ -228,7 +252,11 @@ class Entities(_ExplodeFunction):
         name = "entities"
         description = "Named entities per text row: (id, ent_text, label, start_char, end_char)"
         categories = ["ner"]
-        examples = _ex("entities")
+        examples = _ex(
+            "entities",
+            "ent_text, label",
+            "(SELECT 'Apple was founded by Steve Jobs in California.' AS body)",
+        )
         tags = {
             **object_tags(
                 "Extract Named Entities",
@@ -246,27 +274,38 @@ class Entities(_ExplodeFunction):
                 "nothing; output order is not guaranteed -- add `ORDER BY` for determinism.",
                 "# entities\n\n"
                 "Runs spaCy named-entity recognition over a text column, emitting one row per "
-                "entity span.\n\n"
-                "```sql\n"
-                "SELECT * FROM nlp.entities((SELECT id, body FROM articles), id := 'id');\n"
-                "```\n\n"
+                "entity span. Pass the input relation positionally and name the join key with "
+                "`id :=` so every emitted entity carries the source row's id; `text :=`, "
+                "`lang :=`, and `model :=` choose the text column, pin the language, and override "
+                "the model.\n\n"
                 "Each output row carries the entity text, its type label (`PERSON`, `ORG`, "
-                "`GPE`, `DATE`, `MONEY`, ...), and the character span within the source. Use "
-                "`id :=` to join results back to the source row; rows with no entities produce "
-                "no output.",
+                "`GPE`, `DATE`, `MONEY`, ...), and the character span within the source. Rows "
+                "with no entities produce no output; add an `ORDER BY` for deterministic order. "
+                "See the example queries for ready-to-run SQL.",
                 "named entity recognition, ner, entities, people organizations places, "
                 "person org gpe date money, extract entities, spacy",
                 _SRC,
                 "extraction",
             ),
-            "vgi.result_columns_md": (
-                "| column | type | description |\n"
-                "|---|---|---|\n"
-                "| `<id>` | (input) | Passthrough id from `id :=`, copied onto every row (omitted if no `id`). |\n"
-                "| `ent_text` | VARCHAR | The entity span text. |\n"
-                "| `label` | VARCHAR | Entity type (`PERSON`, `ORG`, `GPE`, `DATE`, `MONEY`, ...). |\n"
-                "| `start_char` | INTEGER | Start character offset within the source text. |\n"
-                "| `end_char` | INTEGER | End character offset within the source text. |"
+            "vgi.result_columns_schema": json.dumps(
+                [
+                    {"name": "ent_text", "type": "VARCHAR", "description": "The entity span text."},
+                    {
+                        "name": "label",
+                        "type": "VARCHAR",
+                        "description": "Entity type (`PERSON`, `ORG`, `GPE`, `DATE`, `MONEY`, ...).",
+                    },
+                    {
+                        "name": "start_char",
+                        "type": "INTEGER",
+                        "description": "Start character offset within the source text.",
+                    },
+                    {
+                        "name": "end_char",
+                        "type": "INTEGER",
+                        "description": "End character offset within the source text.",
+                    },
+                ]
             ),
             "vgi.executable_examples": _EXECUTABLE_EXAMPLES,
         }
@@ -309,7 +348,11 @@ class Tokens(_ExplodeFunction):
         name = "tokens"
         description = "Tokens per text row: (id, token, lemma, pos, tag, is_stop, dep)"
         categories = ["tokenization", "pos"]
-        examples = _ex("tokens")
+        examples = _ex(
+            "tokens",
+            "token, pos",
+            "(SELECT 'The quick brown fox jumps.' AS body)",
+        )
         tags = {
             **object_tags(
                 "Tokenize With POS Tags",
@@ -327,28 +370,27 @@ class Tokens(_ExplodeFunction):
                 "`ORDER BY` for determinism.",
                 "# tokens\n\n"
                 "Tokenizes a text column with spaCy and emits one row per token with rich "
-                "annotations.\n\n"
-                "```sql\n"
-                "SELECT * FROM nlp.tokens((SELECT id, body FROM docs), id := 'id');\n"
-                "```\n\n"
+                "annotations. Pass the input relation positionally; `id :=` names the join key "
+                "copied onto every token row, and `text :=`, `lang :=`, `model :=` pick the text "
+                "column, pin the language, and override the model.\n\n"
                 "Each row gives the token text, its lemma, coarse and fine POS tags, a stop-word "
                 "flag, and its dependency label. Filter on `is_stop` or `pos` to isolate content "
-                "words; use `id :=` to join tokens back to their source document.",
+                "words; use `id :=` to join tokens back to their source document. See the "
+                "example queries for ready-to-run SQL.",
                 "tokenize, tokenization, tokens, part of speech, pos tagging, lemma, "
                 "dependency parse, stop word flag, spacy",
                 _SRC,
                 "extraction",
             ),
-            "vgi.result_columns_md": (
-                "| column | type | description |\n"
-                "|---|---|---|\n"
-                "| `<id>` | (input) | Passthrough id from `id :=`, copied onto every row (omitted if no `id`). |\n"
-                "| `token` | VARCHAR | The token text. |\n"
-                "| `lemma` | VARCHAR | The token's lemma (dictionary form). |\n"
-                "| `pos` | VARCHAR | Coarse universal part-of-speech tag. |\n"
-                "| `tag` | VARCHAR | Fine-grained part-of-speech tag. |\n"
-                "| `is_stop` | BOOLEAN | Whether the token is a stop-word. |\n"
-                "| `dep` | VARCHAR | Syntactic dependency relation. |"
+            "vgi.result_columns_schema": json.dumps(
+                [
+                    {"name": "token", "type": "VARCHAR", "description": "The token text."},
+                    {"name": "lemma", "type": "VARCHAR", "description": "The token's lemma (dictionary form)."},
+                    {"name": "pos", "type": "VARCHAR", "description": "Coarse universal part-of-speech tag."},
+                    {"name": "tag", "type": "VARCHAR", "description": "Fine-grained part-of-speech tag."},
+                    {"name": "is_stop", "type": "BOOLEAN", "description": "Whether the token is a stop-word."},
+                    {"name": "dep", "type": "VARCHAR", "description": "Syntactic dependency relation."},
+                ]
             ),
         }
 
@@ -394,7 +436,11 @@ class Sentences(_ExplodeFunction):
         name = "sentences"
         description = "Sentences per text row: (id, sent_index, sentence) -- chunking for embeddings"
         categories = ["segmentation"]
-        examples = _ex("sentences")
+        examples = _ex(
+            "sentences",
+            "sent_index, sentence",
+            "(SELECT 'First sentence here. Second one follows.' AS body)",
+        )
         tags = {
             **object_tags(
                 "Split Into Sentences",
@@ -410,24 +456,27 @@ class Sentences(_ExplodeFunction):
                 "`ORDER BY id, sent_index` for determinism.",
                 "# sentences\n\n"
                 "Splits a text column into sentences with spaCy, emitting one indexed row per "
-                "sentence.\n\n"
-                "```sql\n"
-                "SELECT * FROM nlp.sentences((SELECT id, content FROM docs), id := 'id');\n"
-                "```\n\n"
+                "sentence. Pass the input relation positionally; `id :=` names the join key "
+                "copied onto every sentence row, and `text :=`, `lang :=`, `model :=` pick the "
+                "text column, pin the language, and override the model.\n\n"
                 "Each row carries the 0-based `sent_index` and the trimmed sentence text. This "
                 "is the standard first step for sentence-level embeddings or retrieval chunking; "
-                "use `id :=` to keep sentences tied to their source document.",
+                "use `id :=` to keep sentences tied to their source document, and order by "
+                "`id, sent_index` for determinism. See the example queries for ready-to-run SQL.",
                 "sentence segmentation, sentence splitting, sentences, sentence tokenizer, "
                 "chunking, sbd, embeddings chunks, spacy",
                 _SRC,
                 "extraction",
             ),
-            "vgi.result_columns_md": (
-                "| column | type | description |\n"
-                "|---|---|---|\n"
-                "| `<id>` | (input) | Passthrough id from `id :=`, copied onto every row (omitted if no `id`). |\n"
-                "| `sent_index` | INTEGER | 0-based index of the sentence within the source text. |\n"
-                "| `sentence` | VARCHAR | The sentence text. |"
+            "vgi.result_columns_schema": json.dumps(
+                [
+                    {
+                        "name": "sent_index",
+                        "type": "INTEGER",
+                        "description": "0-based index of the sentence within the source text.",
+                    },
+                    {"name": "sentence", "type": "VARCHAR", "description": "The sentence text."},
+                ]
             ),
         }
 
@@ -462,7 +511,11 @@ class NounChunks(_ExplodeFunction):
         name = "noun_chunks"
         description = "Noun chunks per text row: (id, chunk, root) -- keyword/topic candidates"
         categories = ["keywords"]
-        examples = _ex("noun_chunks")
+        examples = _ex(
+            "noun_chunks",
+            "chunk, root",
+            "(SELECT 'The big red car drove down the long road.' AS body)",
+        )
         tags = {
             **object_tags(
                 "Extract Noun Chunks",
@@ -479,24 +532,22 @@ class NounChunks(_ExplodeFunction):
                 "guaranteed -- add `ORDER BY` for determinism.",
                 "# noun_chunks\n\n"
                 "Extracts base noun phrases from a text column with spaCy, emitting one row per "
-                "chunk.\n\n"
-                "```sql\n"
-                "SELECT * FROM nlp.noun_chunks((SELECT id, body FROM docs), id := 'id');\n"
-                "```\n\n"
+                "chunk. Pass the input relation positionally; `id :=` names the join key copied "
+                "onto every chunk row, and `text :=`, `lang :=`, `model :=` pick the text column, "
+                "pin the language, and override the model.\n\n"
                 "Each row gives the noun-phrase text and its head token (`root`). Aggregate the "
                 "chunks to surface frequent topics/keywords, or join back to the source via "
-                "`id :=`.",
+                "`id :=`. See the example queries for ready-to-run SQL.",
                 "noun chunks, noun phrases, keyword extraction, topic candidates, key phrases, "
                 "phrase extraction, np chunking, spacy",
                 _SRC,
                 "extraction",
             ),
-            "vgi.result_columns_md": (
-                "| column | type | description |\n"
-                "|---|---|---|\n"
-                "| `<id>` | (input) | Passthrough id from `id :=`, copied onto every row (omitted if no `id`). |\n"
-                "| `chunk` | VARCHAR | The noun-phrase text. |\n"
-                "| `root` | VARCHAR | The head/root token of the noun phrase. |"
+            "vgi.result_columns_schema": json.dumps(
+                [
+                    {"name": "chunk", "type": "VARCHAR", "description": "The noun-phrase text."},
+                    {"name": "root", "type": "VARCHAR", "description": "The head/root token of the noun phrase."},
+                ]
             ),
         }
 
@@ -514,9 +565,122 @@ class NounChunks(_ExplodeFunction):
         return [{"chunk": nc.text, "root": nc.root.text} for nc in doc.noun_chunks]
 
 
+# ---------------------------------------------------------------------------
+# supported_languages (no-argument discovery table)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(kw_only=True)
+class _NoArgs:
+    """A discovery table function that takes no arguments."""
+
+
+_SUPPORTED_LANGUAGES_SCHEMA = pa.schema(
+    [
+        field("lang_code", pa.string(), "ISO-639 language code accepted by the `lang` argument.", nullable=False),
+        field("spacy_model", pa.string(), "Default small spaCy pipeline that backs this language.", nullable=False),
+    ]
+)
+
+
+@init_single_worker
+@bind_fixed_schema
+class SupportedLanguages(TableFunctionGenerator[_NoArgs]):
+    """The languages that have a default spaCy pipeline, one row per language.
+
+    A no-argument **discovery table** so an agent can browse the worker before it
+    knows any function's arguments: it lists the ISO-639 codes you can pin with
+    the ``lang`` argument (or that per-row auto-detect must resolve to) alongside
+    the small spaCy model that backs each. Sourced from the same registry the
+    pipelines use, so it can never drift from real behaviour.
+    """
+
+    FIXED_SCHEMA: ClassVar[pa.Schema] = _SUPPORTED_LANGUAGES_SCHEMA
+
+    class Meta:
+        """Function metadata."""
+
+        name = "supported_languages"
+        description = "Languages with a default spaCy pipeline: (lang_code, spacy_model)"
+        categories = ["discovery"]
+        examples = [
+            FunctionExample(
+                sql="SELECT count(*) AS n_languages FROM nlp.main.supported_languages()",
+                description="Count the languages that have a default spaCy pipeline",
+            ),
+            FunctionExample(
+                sql=("SELECT spacy_model FROM nlp.main.supported_languages() WHERE lang_code = 'en'"),
+                description="Look up the default spaCy model for English",
+            ),
+        ]
+        tags = {
+            **object_tags(
+                "List Supported Languages",
+                "A **table function** (no arguments) returning one row per language that has a "
+                "default spaCy pipeline, so the entity/token/sentence/noun-chunk functions and "
+                "the `lemmatize` / `strip_stopwords` scalars can process it without naming a "
+                "model.\n\n"
+                "**When to use:** discover which ISO-639 codes are valid for the `lang` argument "
+                "before pinning one, or check whether a detected language (from `detect_lang`) "
+                "has an installed pipeline. Columns: `lang_code` (the ISO-639 value you pass as "
+                "`lang`) and `spacy_model` (the default small pipeline that backs it).\n\n"
+                "Note: `detect_lang` recognizes far more languages (fastText covers 176) than "
+                "have a spaCy pipeline installed -- this table lists only the latter. The named "
+                "models must also be present in the worker environment to be loadable.",
+                "# supported_languages\n\n"
+                "Discovery table of every language the worker has a default spaCy pipeline for.\n\n"
+                "## Columns\n\n"
+                "- `lang_code` (VARCHAR) -- ISO-639 code accepted by the `lang` argument.\n"
+                "- `spacy_model` (VARCHAR) -- the default small spaCy model backing it.\n\n"
+                "Language detection (`detect_lang`) spans 176 languages via fastText, but only "
+                "the languages listed here can be lemmatized, tokenized, or run through NER "
+                "without naming a custom model. See the example queries for ready-to-run SQL.",
+                "supported languages, languages, iso-639, spacy models, language support, "
+                "capabilities, discovery, which languages",
+                _SRC,
+                "discovery",
+            ),
+            "vgi.result_columns_schema": json.dumps(
+                [
+                    {
+                        "name": "lang_code",
+                        "type": "VARCHAR",
+                        "description": "ISO-639 language code accepted by the `lang` argument.",
+                    },
+                    {
+                        "name": "spacy_model",
+                        "type": "VARCHAR",
+                        "description": "Default small spaCy pipeline that backs this language.",
+                    },
+                ]
+            ),
+        }
+
+    @classmethod
+    def cardinality(cls, params: BindParams[_NoArgs]) -> TableCardinality:
+        """Estimated and maximum row count for the planner."""
+        return TableCardinality(estimate=32, max=256)
+
+    @classmethod
+    def process(cls, params: ProcessParams[_NoArgs], state: None, out: OutputCollector) -> None:
+        """Emit one batch of (lang_code, spacy_model) discovery rows."""
+        rows = pipelines.supported_languages()
+        out.emit(
+            pa.RecordBatch.from_pydict(
+                {
+                    "lang_code": [code for code, _model in rows],
+                    "spacy_model": [model for _code, model in rows],
+                },
+                schema=params.output_schema,
+            )
+        )
+        out.finish()
+
+
 TABLE_FUNCTIONS: list[type] = [
     Entities,
     Tokens,
     Sentences,
     NounChunks,
+    SupportedLanguages,
 ]
