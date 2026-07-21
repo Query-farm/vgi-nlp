@@ -1,7 +1,7 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = [
-#     "vgi-python[http]>=0.14.0",
+#     "vgi-python[http]>=0.16.0",
 #     "spacy>=3.7",
 #     "fasttext-wheel",
 #     "vaderSentiment",
@@ -90,8 +90,9 @@ _CATALOG_DESCRIPTION_MD = (
     "detect and segment multilingual corpora, score or bucket opinion, clean and "
     "canonicalize text so free-text keys join and group reliably, or split "
     "documents into structured rows you can aggregate and join back to their "
-    "source. Attach the worker, then list the schema to discover the available "
-    "functions and their signatures:\n\n"
+    "source. Attach the worker, then call the functions directly from SQL -- "
+    "`nlp.main.detect_lang(body)`, `nlp.main.sentiment(body)`, or "
+    "`nlp.main.entities((SELECT id, body FROM docs), id := 'id')`:\n\n"
     "```sql\n"
     "INSTALL vgi FROM community;\n"
     "LOAD vgi;\n"
@@ -121,16 +122,40 @@ _SCHEMA_DESCRIPTION_MD = (
     "(one text row in, N rows out, with an optional `id :=` passthrough)."
 )
 
-# Representative, catalog-qualified example queries for the schema (VGI506).
-# All are self-contained so they bind/execute against the worker.
-_SCHEMA_EXAMPLE_QUERIES = (
-    "SELECT nlp.main.detect_lang('Bonjour tout le monde');\n"
-    "SELECT nlp.main.sentiment('I absolutely love this product!');\n"
-    "SELECT nlp.main.sentiment_label('This was a terrible experience');\n"
-    "SELECT nlp.main.lemmatize('The cats were running', 'en');\n"
-    "SELECT nlp.main.normalize('  Café   DELUXE  ');\n"
-    "SELECT * FROM nlp.main.entities("
-    "(SELECT 1 AS id, 'Apple is based in California.' AS body), id := 'id', lang := 'en');"
+# Representative, catalog-qualified example queries for the schema (VGI506). Each
+# is a described {description, sql} object (VGI515) and self-contained so it
+# binds/executes against the worker; the entity example projects named columns
+# rather than a bare `SELECT *` (VGI514).
+_SCHEMA_EXAMPLE_QUERIES = json.dumps(
+    [
+        {
+            "description": "Detect the language of a French string.",
+            "sql": "SELECT nlp.main.detect_lang('Bonjour tout le monde') AS lang",
+        },
+        {
+            "description": "Score the sentiment of a positive English review.",
+            "sql": "SELECT nlp.main.sentiment('I absolutely love this product!') AS score",
+        },
+        {
+            "description": "Bucket a review into a neg/neu/pos sentiment label.",
+            "sql": "SELECT nlp.main.sentiment_label('This was a terrible experience') AS mood",
+        },
+        {
+            "description": "Lemmatize an English string with the language pinned.",
+            "sql": "SELECT nlp.main.lemmatize('The cats were running', 'en') AS lemmas",
+        },
+        {
+            "description": "Canonicalize a messy string for dedup/matching.",
+            "sql": "SELECT nlp.main.normalize('  Café   DELUXE  ') AS canonical",
+        },
+        {
+            "description": "Extract named entities from a literal document, keyed back to its id.",
+            "sql": (
+                "SELECT id, ent_text, label FROM nlp.main.entities("
+                "(SELECT 1 AS id, 'Apple is based in California.' AS body), id := 'id', lang := 'en')"
+            ),
+        },
+    ]
 )
 
 # Ordered navigation registry for the `main` schema (VGI408-413). Every function
@@ -380,11 +405,10 @@ _SUPPORTED_LANGUAGES_DOC_MD = (
     "Discovery table of every language the worker has a default spaCy pipeline for, exposed as a "
     "regular table you can read without parentheses.\n\n"
     "## Columns\n\n"
-    "- `lang_code` (VARCHAR, primary key) -- ISO-639 code accepted by the `lang` argument.\n"
-    "- `spacy_model` (VARCHAR) -- the default small spaCy model backing it.\n\n"
+    "- `lang_code` (`VARCHAR`, primary key) -- ISO-639 code accepted by the `lang` argument.\n"
+    "- `spacy_model` (`VARCHAR`) -- the default small spaCy model backing it.\n\n"
     "Language detection (`detect_lang`) spans 176 languages via fastText, but only the languages "
-    "listed here can be lemmatized, tokenized, or run through NER without naming a custom model. "
-    "See the table's example queries for ready-to-run SQL."
+    "listed here can be lemmatized, tokenized, or run through NER without naming a custom model."
 )
 
 _DISCOVERY_TABLES: list[Table] = [

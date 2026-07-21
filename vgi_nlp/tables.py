@@ -118,6 +118,16 @@ class NlpTableArgs:
     model: Annotated[str, Arg("model", default="", doc="Override spaCy model name; '' = default for lang")]
 
 
+def _eq(examples: list[FunctionExample]) -> str:
+    """Serialize examples as a described `vgi.example_queries` JSON carrier (VGI515).
+
+    DuckDB's native ``duckdb_functions().examples`` carrier drops the per-example
+    description, so mirror each ``FunctionExample`` here as a ``{description, sql}``
+    object so every example keeps its description.
+    """
+    return json.dumps([{"description": e.description, "sql": e.sql} for e in examples])
+
+
 def _ex(name: str, projection: str, demo_input: str) -> list[FunctionExample]:
     """One fully-qualified example that projects the columns that matter.
 
@@ -280,12 +290,12 @@ class Entities(_ExplodeFunction):
                 "the model.\n\n"
                 "Each output row carries the entity text, its type label (`PERSON`, `ORG`, "
                 "`GPE`, `DATE`, `MONEY`, ...), and the character span within the source. Rows "
-                "with no entities produce no output; add an `ORDER BY` for deterministic order. "
-                "See the example queries for ready-to-run SQL.",
+                "with no entities produce no output; add an `ORDER BY` for deterministic order.",
                 "named entity recognition, ner, entities, people organizations places, "
                 "person org gpe date money, extract entities, spacy",
                 _SRC,
                 "extraction",
+                example_queries=_eq(examples),
             ),
             "vgi.result_columns_schema": json.dumps(
                 [
@@ -375,12 +385,12 @@ class Tokens(_ExplodeFunction):
                 "column, pin the language, and override the model.\n\n"
                 "Each row gives the token text, its lemma, coarse and fine POS tags, a stop-word "
                 "flag, and its dependency label. Filter on `is_stop` or `pos` to isolate content "
-                "words; use `id :=` to join tokens back to their source document. See the "
-                "example queries for ready-to-run SQL.",
+                "words; use `id :=` to join tokens back to their source document.",
                 "tokenize, tokenization, tokens, part of speech, pos tagging, lemma, "
                 "dependency parse, stop word flag, spacy",
                 _SRC,
                 "extraction",
+                example_queries=_eq(examples),
             ),
             "vgi.result_columns_schema": json.dumps(
                 [
@@ -462,11 +472,12 @@ class Sentences(_ExplodeFunction):
                 "Each row carries the 0-based `sent_index` and the trimmed sentence text. This "
                 "is the standard first step for sentence-level embeddings or retrieval chunking; "
                 "use `id :=` to keep sentences tied to their source document, and order by "
-                "`id, sent_index` for determinism. See the example queries for ready-to-run SQL.",
+                "`id, sent_index` for determinism.",
                 "sentence segmentation, sentence splitting, sentences, sentence tokenizer, "
                 "chunking, sbd, embeddings chunks, spacy",
                 _SRC,
                 "extraction",
+                example_queries=_eq(examples),
             ),
             "vgi.result_columns_schema": json.dumps(
                 [
@@ -537,11 +548,12 @@ class NounChunks(_ExplodeFunction):
                 "pin the language, and override the model.\n\n"
                 "Each row gives the noun-phrase text and its head token (`root`). Aggregate the "
                 "chunks to surface frequent topics/keywords, or join back to the source via "
-                "`id :=`. See the example queries for ready-to-run SQL.",
+                "`id :=`.",
                 "noun chunks, noun phrases, keyword extraction, topic candidates, key phrases, "
                 "phrase extraction, np chunking, spacy",
                 _SRC,
                 "extraction",
+                example_queries=_eq(examples),
             ),
             "vgi.result_columns_schema": json.dumps(
                 [
@@ -630,15 +642,16 @@ class SupportedLanguages(TableFunctionGenerator[_NoArgs]):
                 "# supported_languages\n\n"
                 "Discovery table of every language the worker has a default spaCy pipeline for.\n\n"
                 "## Columns\n\n"
-                "- `lang_code` (VARCHAR) -- ISO-639 code accepted by the `lang` argument.\n"
-                "- `spacy_model` (VARCHAR) -- the default small spaCy model backing it.\n\n"
+                "- `lang_code` (`VARCHAR`) -- ISO-639 code accepted by the `lang` argument.\n"
+                "- `spacy_model` (`VARCHAR`) -- the default small spaCy model backing it.\n\n"
                 "Language detection (`detect_lang`) spans 176 languages via fastText, but only "
                 "the languages listed here can be lemmatized, tokenized, or run through NER "
-                "without naming a custom model. See the example queries for ready-to-run SQL.",
+                "without naming a custom model.",
                 "supported languages, languages, iso-639, spacy models, language support, "
                 "capabilities, discovery, which languages",
                 _SRC,
                 "discovery",
+                example_queries=_eq(examples),
             ),
             "vgi.result_columns_schema": json.dumps(
                 [

@@ -214,5 +214,10 @@ jobs:
       - name: vgi-lint
         uses: Query-farm/vgi-lint-check@v1
         with:
-          location: "uv run --python 3.13 nlp_worker.py"
+          # Launch the worker from the frozen-locked project venv (vgi-python
+          # pinned by uv.lock), NOT `uv run nlp_worker.py`: the PEP-723 script env
+          # can cache a stale SDK and emit the old catalog schema, tripping a false
+          # schema-mismatch. `uv sync --extra http` above builds this .venv and the
+          # spaCy-model download step installs en_core_web_sm into it.
+          location: ".venv/bin/python nlp_worker.py"
           fail-on: info

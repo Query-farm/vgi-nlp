@@ -32,6 +32,7 @@ NULL / empty input yields NULL output throughout.
 
 from __future__ import annotations
 
+import json
 import unicodedata
 from collections.abc import Callable
 from typing import Annotated, Any, cast
@@ -49,6 +50,18 @@ _SRC = "vgi_nlp/scalars.py"
 
 def _ex(sql: str, description: str) -> list[FunctionExample]:
     return [FunctionExample(sql=sql, description=description)]
+
+
+def _eq(*example_lists: list[FunctionExample]) -> str:
+    """Serialize examples as a described `vgi.example_queries` JSON carrier (VGI515).
+
+    DuckDB's native ``duckdb_functions().examples`` carrier drops the per-example
+    description, so mirror each ``FunctionExample`` here as a ``{description, sql}``
+    object. For arity-overloaded scalars (``lemmatize`` / ``strip_stopwords``) the
+    catalog aggregates every overload under one function name, so pass every
+    overload's example list to build the aggregated carrier shared by all of them.
+    """
+    return json.dumps([{"description": e.description, "sql": e.sql} for examples in example_lists for e in examples])
 
 
 # ---------------------------------------------------------------------------
@@ -77,7 +90,7 @@ class DetectLang(ScalarFunction):
             "**When to use:** routing mixed-language corpora, filtering a table down to one "
             "language before applying English-only models (e.g. VADER sentiment), or building "
             "a language histogram with `GROUP BY`.\n\n"
-            "**Input:** one VARCHAR column. **Output:** a VARCHAR ISO-639 code. NULL or empty "
+            "**Input:** one `VARCHAR` column. **Output:** a `VARCHAR` ISO-639 code. NULL or empty "
             "input yields NULL. Very short or ambiguous strings can be misclassified -- pair "
             "with `detect_lang_conf` and threshold on confidence when accuracy matters.",
             "# detect_lang\n\n"
@@ -91,6 +104,7 @@ class DetectLang(ScalarFunction):
             "iso-639, locale, fasttext, what language",
             _SRC,
             "language-id",
+            example_queries=_eq(examples),
         )
 
     @classmethod
@@ -122,7 +136,7 @@ class DetectLangConf(ScalarFunction):
             "guess of each input string -- the companion probability to `detect_lang`.\n\n"
             "**When to use:** gate downstream processing on identification quality, e.g. keep "
             "only rows the model is sure about with `WHERE nlp.detect_lang_conf(body) > 0.8`.\n\n"
-            "**Input:** one VARCHAR column. **Output:** a FLOAT. NULL/empty input yields NULL. "
+            "**Input:** one `VARCHAR` column. **Output:** a `FLOAT`. NULL/empty input yields NULL. "
             "Edge case: fastText occasionally reports a confidence marginally above 1.0 (e.g. "
             "~1.00001), so do not assert a strict `<= 1.0` upper bound on the result.",
             "# detect_lang_conf\n\n"
@@ -135,6 +149,7 @@ class DetectLangConf(ScalarFunction):
             "fasttext confidence, certainty, threshold",
             _SRC,
             "language-id",
+            example_queries=_eq(examples),
         )
 
     @classmethod
@@ -172,7 +187,7 @@ class Sentiment(ScalarFunction):
             "positive.\n\n"
             "**When to use:** rank or aggregate opinion in reviews, comments, tweets, and other "
             "short social/English text -- e.g. `avg(nlp.sentiment(body))` per product.\n\n"
-            "**Input:** one VARCHAR column. **Output:** a FLOAT in `[-1, 1]`. NULL/empty input "
+            "**Input:** one `VARCHAR` column. **Output:** a `FLOAT` in `[-1, 1]`. NULL/empty input "
             "yields NULL. VADER is a lexicon-and-rules model tuned for English and social media; "
             "it understands emphasis, negation, and emoticons but is not a translator -- score "
             "non-English text only after detecting/translating it.",
@@ -186,6 +201,7 @@ class Sentiment(ScalarFunction):
             "sentiment, sentiment analysis, vader, opinion, polarity, mood, positive negative, compound score, reviews",
             _SRC,
             "sentiment",
+            example_queries=_eq(examples),
         )
 
     @classmethod
@@ -218,7 +234,7 @@ class SentimentLabel(ScalarFunction):
             "**When to use:** when you want a categorical opinion bucket for `GROUP BY` / "
             "filtering rather than a continuous number; cheaper to read in dashboards than the "
             "raw score.\n\n"
-            "**Input:** one VARCHAR column. **Output:** a VARCHAR in `{neg, neu, pos}`. "
+            "**Input:** one `VARCHAR` column. **Output:** a `VARCHAR` in `{neg, neu, pos}`. "
             "NULL/empty input yields NULL. Same English/social-text caveats as `sentiment`; if "
             "you need the underlying magnitude, call `nlp.sentiment` instead.",
             "# sentiment_label\n\n"
@@ -231,6 +247,7 @@ class SentimentLabel(ScalarFunction):
             "polarity bucket, vader, opinion category",
             _SRC,
             "sentiment",
+            example_queries=_eq(examples),
         )
 
     @classmethod
@@ -260,6 +277,38 @@ def _strip_reduce(doc: Any) -> str:
     return " ".join(tok.text for tok in doc if not tok.is_stop and not tok.is_punct)
 
 
+# Arity-overloaded scalars aggregate under one function name in the catalog, so
+# their examples (native + the `vgi.example_queries` carrier) are defined once here
+# and shared across every overload class below.
+_LEMMATIZE_EX = _ex(
+    "SELECT nlp.main.lemmatize('The cats were running quickly') AS lemmas",
+    "Lemmatize a literal string with per-row language auto-detect",
+)
+_LEMMATIZE_LANG_EX = _ex(
+    "SELECT nlp.main.lemmatize('The cats were running quickly', 'en') AS lemmas",
+    "Lemmatize a literal string with the language pinned to English",
+)
+_LEMMATIZE_MODEL_EX = _ex(
+    "SELECT nlp.main.lemmatize('The cats were running quickly', 'en', 'en_core_web_sm') AS lemmas",
+    "Lemmatize a literal string with an explicit spaCy model",
+)
+_LEMMATIZE_EQ = _eq(_LEMMATIZE_EX, _LEMMATIZE_LANG_EX, _LEMMATIZE_MODEL_EX)
+
+_STRIP_EX = _ex(
+    "SELECT nlp.main.strip_stopwords('this is a really great movie') AS kept",
+    "Drop stop-words from a literal string with per-row auto-detect",
+)
+_STRIP_LANG_EX = _ex(
+    "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') AS kept",
+    "Drop English stop-words from a literal string",
+)
+_STRIP_MODEL_EX = _ex(
+    "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en', 'en_core_web_sm') AS kept",
+    "Drop stop-words from a literal string with an explicit spaCy model",
+)
+_STRIP_EQ = _eq(_STRIP_EX, _STRIP_LANG_EX, _STRIP_MODEL_EX)
+
+
 class Lemmatize(ScalarFunction):
     """``lemmatize(text)`` -- lemmatize each text, auto-detecting the language per row."""
 
@@ -269,10 +318,7 @@ class Lemmatize(ScalarFunction):
         name = "lemmatize"
         description = "Lemmatize each text (tokens replaced by their dictionary form); language auto-detected"
         categories = ["cleaning"]
-        examples = _ex(
-            "SELECT nlp.main.lemmatize('The cats were running quickly') AS lemmas",
-            "Lemmatize a literal string with per-row language auto-detect",
-        )
+        examples = _LEMMATIZE_EX
         tags = object_tags(
             "Lemmatize Text (Auto-Detect Language)",
             "Reduce every token to its dictionary base form (lemma) and return the lemmas "
@@ -280,7 +326,7 @@ class Lemmatize(ScalarFunction):
             "before running the matching spaCy pipeline.\n\n"
             "**When to use:** normalize inflected words (`running`/`ran` -> `run`, `cats` -> "
             "`cat`) before keyword search, deduplication, or bag-of-words featurization.\n\n"
-            "**Input:** one VARCHAR column. **Output:** a VARCHAR of space-joined lemmas. "
+            "**Input:** one `VARCHAR` column. **Output:** a `VARCHAR` of space-joined lemmas. "
             "NULL/empty input -- and rows whose detected language has no installed spaCy "
             "pipeline -- yield NULL. Pin the language with the `(text, lang)` overload when the "
             "corpus is monolingual to skip per-row detection and its throughput cost.",
@@ -295,6 +341,7 @@ class Lemmatize(ScalarFunction):
             "words, spacy, text cleaning",
             _SRC,
             "text-cleaning",
+            example_queries=_LEMMATIZE_EQ,
         )
 
     @classmethod
@@ -315,10 +362,7 @@ class LemmatizeLang(ScalarFunction):
         name = "lemmatize"
         description = "Lemmatize each text with the pipeline language pinned (ISO-639 code)"
         categories = ["cleaning"]
-        examples = _ex(
-            "SELECT nlp.main.lemmatize('The cats were running quickly', 'en') AS lemmas",
-            "Lemmatize a literal string with the language pinned to English",
-        )
+        examples = _LEMMATIZE_LANG_EX
         tags = object_tags(
             "Lemmatize Text (Pinned Language)",
             "Reduce every token to its lemma and return them space-joined, using the spaCy "
@@ -327,8 +371,8 @@ class LemmatizeLang(ScalarFunction):
             "**When to use:** monolingual corpora -- pinning `lang` (e.g. `'en'`) skips fastText "
             "language detection on every row, which is faster and avoids mis-detection on short "
             "or ambiguous strings.\n\n"
-            "**Inputs:** a VARCHAR text column and a constant ISO-639 `lang` code. **Output:** a "
-            "VARCHAR of space-joined lemmas. NULL/empty text yields NULL; an unknown/unsupported "
+            "**Inputs:** a `VARCHAR` text column and a constant ISO-639 `lang` code. **Output:** a "
+            "`VARCHAR` of space-joined lemmas. NULL/empty text yields NULL; an unknown/unsupported "
             "language (no installed pipeline) also yields NULL.",
             "# lemmatize(text, lang)\n\n"
             "Like `lemmatize(text)`, but the spaCy pipeline language is fixed to the supplied "
@@ -340,6 +384,7 @@ class LemmatizeLang(ScalarFunction):
             "iso-639, monolingual, text cleaning",
             _SRC,
             "text-cleaning",
+            example_queries=_LEMMATIZE_EQ,
         )
 
     @classmethod
@@ -361,10 +406,7 @@ class LemmatizeModel(ScalarFunction):
         name = "lemmatize"
         description = "Lemmatize each text with an explicit spaCy model (e.g. en_core_web_sm)"
         categories = ["cleaning"]
-        examples = _ex(
-            "SELECT nlp.main.lemmatize('The cats were running quickly', 'en', 'en_core_web_sm') AS lemmas",
-            "Lemmatize a literal string with an explicit spaCy model",
-        )
+        examples = _LEMMATIZE_MODEL_EX
         tags = object_tags(
             "Lemmatize Text (Explicit Model)",
             "Reduce every token to its lemma and return them space-joined, loading a **named** "
@@ -372,8 +414,8 @@ class LemmatizeModel(ScalarFunction):
             "**When to use:** when you need a particular model -- e.g. a larger/transformer "
             "model (`en_core_web_trf`) for higher accuracy, or a non-default model already "
             "installed in the worker environment.\n\n"
-            "**Inputs:** a VARCHAR text column, an ISO-639 `lang` (`''` ignores it when a model "
-            "is given), and a `model` name. **Output:** a VARCHAR of space-joined lemmas. "
+            "**Inputs:** a `VARCHAR` text column, an ISO-639 `lang` (`''` ignores it when a model "
+            "is given), and a `model` name. **Output:** a `VARCHAR` of space-joined lemmas. "
             "NULL/empty text yields NULL. The named model must be installed in the worker's "
             "environment, or the call errors at load time.",
             "# lemmatize(text, lang, model)\n\n"
@@ -386,6 +428,7 @@ class LemmatizeModel(ScalarFunction):
             "explicit model, text cleaning, pipeline",
             _SRC,
             "text-cleaning",
+            example_queries=_LEMMATIZE_EQ,
         )
 
     @classmethod
@@ -408,10 +451,7 @@ class StripStopwords(ScalarFunction):
         name = "strip_stopwords"
         description = "Remove stop-words and punctuation, returning the rest joined; language auto-detected"
         categories = ["cleaning"]
-        examples = _ex(
-            "SELECT nlp.main.strip_stopwords('this is a really great movie') AS kept",
-            "Drop stop-words from a literal string with per-row auto-detect",
-        )
+        examples = _STRIP_EX
         tags = object_tags(
             "Strip Stop-Words (Auto-Detect Language)",
             "Drop stop-words and punctuation from each text and return the surviving tokens "
@@ -419,7 +459,7 @@ class StripStopwords(ScalarFunction):
             "spaCy stop-word list.\n\n"
             "**When to use:** strip low-signal filler (`the`, `is`, `a`, ...) before keyword "
             "extraction, TF-IDF, or similarity search so the content words dominate.\n\n"
-            "**Input:** one VARCHAR column. **Output:** a VARCHAR of the kept tokens. NULL/empty "
+            "**Input:** one `VARCHAR` column. **Output:** a `VARCHAR` of the kept tokens. NULL/empty "
             "input -- and rows whose detected language has no spaCy pipeline -- yield NULL. Pin "
             "the language with the `(text, lang)` overload on monolingual data to skip per-row "
             "detection.",
@@ -433,6 +473,7 @@ class StripStopwords(ScalarFunction):
             "text cleaning, preprocessing, spacy",
             _SRC,
             "text-cleaning",
+            example_queries=_STRIP_EQ,
         )
 
     @classmethod
@@ -453,10 +494,7 @@ class StripStopwordsLang(ScalarFunction):
         name = "strip_stopwords"
         description = "Remove stop-words and punctuation with the pipeline language pinned (ISO-639)"
         categories = ["cleaning"]
-        examples = _ex(
-            "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') AS kept",
-            "Drop English stop-words from a literal string",
-        )
+        examples = _STRIP_LANG_EX
         tags = object_tags(
             "Strip Stop-Words (Pinned Language)",
             "Drop stop-words and punctuation and return the surviving tokens space-joined, "
@@ -466,8 +504,8 @@ class StripStopwordsLang(ScalarFunction):
             "**When to use:** monolingual corpora -- pinning `lang` (e.g. `'en'`) skips fastText "
             "detection on every row, which is faster and avoids mis-detection on short strings."
             "\n\n"
-            "**Inputs:** a VARCHAR text column and a constant ISO-639 `lang` code. **Output:** a "
-            "VARCHAR of the kept tokens. NULL/empty text yields NULL; an unsupported language "
+            "**Inputs:** a `VARCHAR` text column and a constant ISO-639 `lang` code. **Output:** a "
+            "`VARCHAR` of the kept tokens. NULL/empty text yields NULL; an unsupported language "
             "(no installed pipeline) also yields NULL.",
             "# strip_stopwords(text, lang)\n\n"
             "Like `strip_stopwords(text)`, but the spaCy stop-word list is fixed to the supplied "
@@ -480,6 +518,7 @@ class StripStopwordsLang(ScalarFunction):
             "iso-639, monolingual, text cleaning, spacy",
             _SRC,
             "text-cleaning",
+            example_queries=_STRIP_EQ,
         )
 
     @classmethod
@@ -501,18 +540,15 @@ class StripStopwordsModel(ScalarFunction):
         name = "strip_stopwords"
         description = "Remove stop-words and punctuation with an explicit spaCy model"
         categories = ["cleaning"]
-        examples = _ex(
-            "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en', 'en_core_web_sm') AS kept",
-            "Drop stop-words from a literal string with an explicit spaCy model",
-        )
+        examples = _STRIP_MODEL_EX
         tags = object_tags(
             "Strip Stop-Words (Explicit Model)",
             "Drop stop-words and punctuation and return the surviving tokens space-joined, "
             "loading a **named** spaCy model rather than the language default.\n\n"
             "**When to use:** when a particular model is required -- a larger/transformer model "
             "for better tokenization, or a non-default model already installed in the worker.\n\n"
-            "**Inputs:** a VARCHAR text column, an ISO-639 `lang` (`''` ignores it when a model "
-            "is given), and a `model` name. **Output:** a VARCHAR of the kept tokens. NULL/empty "
+            "**Inputs:** a `VARCHAR` text column, an ISO-639 `lang` (`''` ignores it when a model "
+            "is given), and a `model` name. **Output:** a `VARCHAR` of the kept tokens. NULL/empty "
             "text yields NULL. The named model must be installed in the worker's environment or "
             "the call errors at load time.",
             "# strip_stopwords(text, lang, model)\n\n"
@@ -525,6 +561,7 @@ class StripStopwordsModel(ScalarFunction):
             "explicit model, content words, text cleaning",
             _SRC,
             "text-cleaning",
+            example_queries=_STRIP_EQ,
         )
 
     @classmethod
@@ -559,7 +596,7 @@ class Normalize(ScalarFunction):
             "**When to use:** before equality joins, deduplication, or grouping on free-text "
             "keys so that visually-identical strings differing only in case, full/half-width "
             "forms, ligatures, or spacing compare equal.\n\n"
-            "**Input:** one VARCHAR column. **Output:** a normalized VARCHAR. NULL input yields "
+            "**Input:** one `VARCHAR` column. **Output:** a normalized `VARCHAR`. NULL input yields "
             "NULL. This function is **pure Python** -- no spaCy/fastText model is loaded -- so "
             "it is the cheapest function in the worker and always available.",
             "# normalize\n\n"
@@ -571,6 +608,7 @@ class Normalize(ScalarFunction):
             "dedup, matching, text cleaning",
             _SRC,
             "text-cleaning",
+            example_queries=_eq(examples),
         )
 
     @classmethod
