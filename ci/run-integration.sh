@@ -35,6 +35,10 @@ REPO="$(cd "$HERE/.." && pwd)"
 STAGE="${STAGE:-$(mktemp -d)}"
 TRANSPORT="${TRANSPORT:-subprocess}"
 WORKER_CMD="${WORKER_CMD:-uv run --python 3.13 $REPO/nlp_worker.py}"
+# Which staged tests to run (relative to $STAGE). Default: the whole suite. The
+# Docker image_test overrides this to smoke a single file over a cold stdio
+# container without paying for the full suite per-ATTACH.
+TEST_PATTERN="${TEST_PATTERN:-test/sql/*}"
 
 echo "Staging preprocessed tests into $STAGE ..."
 mkdir -p "$STAGE/test/sql"
@@ -97,38 +101,47 @@ case "$TRANSPORT" in
       ' "$sf" > "$sf.tmp" && mv "$sf.tmp" "$sf"
     done
 
-    # Boot the worker in HTTP mode on an auto-selected port. The worker writes
-    # the chosen port to --port-file atomically (tmp + rename), so we watch for
-    # the file to appear rather than parsing stdout. HTTP mode needs the `http`
-    # extra (waitress); WORKER_CMD must resolve it — CI installs it via
-    # `uv sync --extra http` and the PEP 723 header lists the extra too.
-    PORT_FILE="$(mktemp -u "${TMPDIR:-/tmp}/nlp-port.XXXXXX")"
-    LOG_FILE="${TMPDIR:-/tmp}/nlp-http-server.log"
-    echo "Starting HTTP worker: $WORKER_CMD --http --port 0 --port-file $PORT_FILE"
-    # shellcheck disable=SC2086
-    $WORKER_CMD --http --port 0 --port-file "$PORT_FILE" > "$LOG_FILE" 2>&1 &
-    SERVER_PID=$!
+    # If the caller already points VGI_NLP_WORKER at a running HTTP worker (e.g.
+    # the Docker image_test warms a published container and sets
+    # VGI_NLP_WORKER=http://localhost:8000), use it directly and skip booting a
+    # local worker — there is no worker binary/script on the runner in that case.
+    # Otherwise boot the worker ourselves (the normal CI http leg).
+    if [[ "${VGI_NLP_WORKER:-}" =~ ^https?:// ]]; then
+      echo "Using pre-booted HTTP worker at $VGI_NLP_WORKER"
+    else
+      # Boot the worker in HTTP mode on an auto-selected port. The worker writes
+      # the chosen port to --port-file atomically (tmp + rename), so we watch for
+      # the file to appear rather than parsing stdout. HTTP mode needs the `http`
+      # extra (waitress); WORKER_CMD must resolve it — CI installs it via
+      # `uv sync --extra http` and the PEP 723 header lists the extra too.
+      PORT_FILE="$(mktemp -u "${TMPDIR:-/tmp}/nlp-port.XXXXXX")"
+      LOG_FILE="${TMPDIR:-/tmp}/nlp-http-server.log"
+      echo "Starting HTTP worker: $WORKER_CMD --http --port 0 --port-file $PORT_FILE"
+      # shellcheck disable=SC2086
+      $WORKER_CMD --http --port 0 --port-file "$PORT_FILE" > "$LOG_FILE" 2>&1 &
+      SERVER_PID=$!
 
-    PORT=""
-    for _ in $(seq 1 240); do
-      if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-        echo "ERROR: HTTP worker exited before reporting a port. Log:" >&2
+      PORT=""
+      for _ in $(seq 1 240); do
+        if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+          echo "ERROR: HTTP worker exited before reporting a port. Log:" >&2
+          cat "$LOG_FILE" >&2
+          exit 1
+        fi
+        if [[ -s "$PORT_FILE" ]]; then
+          PORT="$(tr -d '[:space:]' < "$PORT_FILE")"
+          [[ -n "$PORT" ]] && break
+        fi
+        sleep 0.5
+      done
+      if [[ -z "$PORT" ]]; then
+        echo "ERROR: timed out waiting for HTTP worker port-file. Log:" >&2
         cat "$LOG_FILE" >&2
         exit 1
       fi
-      if [[ -s "$PORT_FILE" ]]; then
-        PORT="$(tr -d '[:space:]' < "$PORT_FILE")"
-        [[ -n "$PORT" ]] && break
-      fi
-      sleep 0.5
-    done
-    if [[ -z "$PORT" ]]; then
-      echo "ERROR: timed out waiting for HTTP worker port-file. Log:" >&2
-      cat "$LOG_FILE" >&2
-      exit 1
+      echo "HTTP worker ready on port $PORT (pid $SERVER_PID)"
+      export VGI_NLP_WORKER="http://127.0.0.1:$PORT"
     fi
-    echo "HTTP worker ready on port $PORT (pid $SERVER_PID)"
-    export VGI_NLP_WORKER="http://127.0.0.1:$PORT"
     ;;
 
   unix)
@@ -193,10 +206,10 @@ rm -f "$STAGE/test/_warm.test"
 # setup would therefore report "All tests were skipped" and go GREEN while
 # testing nothing. Capture the output, echo it, and fail if the runner did not
 # report a positive number of passing tests.
-echo "Running suite (transport: $TRANSPORT, worker: $VGI_NLP_WORKER) ..."
+echo "Running suite (transport: $TRANSPORT, worker: $VGI_NLP_WORKER, pattern: $TEST_PATTERN) ..."
 OUT_FILE="$(mktemp)"
 set +e
-"$HAYBARN_UNITTEST" "test/sql/*" 2>&1 | tee "$OUT_FILE"
+"$HAYBARN_UNITTEST" "$TEST_PATTERN" 2>&1 | tee "$OUT_FILE"
 RC="${PIPESTATUS[0]}"
 set -e
 if [[ "$RC" -ne 0 ]]; then

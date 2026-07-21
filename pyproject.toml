@@ -21,6 +21,11 @@ dependencies = [
 http = [
     "vgi-python[http]>=0.16.0",
 ]
+# HTTP-serving extra installed by the Docker image (`pip install '.[serve]'`).
+# Same payload as `http`; named `serve` to match the fleet Docker convention.
+serve = [
+    "vgi-python[http]>=0.16.0",
+]
 dev = [
     "pytest>=8",
     "mypy>=1.10",
@@ -28,6 +33,11 @@ dev = [
     "pydoclint",
     "en-core-web-sm",
 ]
+
+[project.scripts]
+# Console-script stdio entry — DuckDB can ATTACH it directly, and the Docker
+# image execs it for the stdio transport. Points at the wheel-importable module.
+vgi-nlp-worker = "vgi_nlp.worker:main"
 
 [project.urls]
 Homepage = "https://query.farm"
