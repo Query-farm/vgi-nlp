@@ -1,0 +1,52 @@
+# Private graders for `vgi-lint simulate` (VGI416). The worker publishes only
+# task names and prompts in vgi.agent_test_tasks; these canonical solutions stay
+# in the repo and are never exposed in catalog metadata.
+tasks:
+  # Deterministic string output (fastText lid.176 is deterministic).
+  - name: detect-language-code
+    reference_sql: "SELECT nlp.main.detect_lang('Bonjour tout le monde, comment allez-vous aujourd''hui?') AS lang"
+    ignore_column_names: true
+  # Float confidence reframed as a stable boolean threshold predicate (VGI920).
+  - name: confident-english
+    reference_sql: "SELECT (nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') = 'en' AND nlp.main.detect_lang_conf('The quick brown fox jumps over the lazy dog') > 0.9) AS confident_english"
+    ignore_column_names: true
+  # Float score reframed as a stable boolean threshold predicate (VGI920).
+  - name: sentiment-is-positive
+    reference_sql: "SELECT nlp.main.sentiment('I absolutely love this product, it works wonderfully!') > 0.05 AS is_positive"
+    ignore_column_names: true
+  # Deterministic coarse label (neg/neu/pos) from fixed VADER thresholds.
+  - name: sentiment-label
+    reference_sql: "SELECT nlp.main.sentiment_label('This is the worst experience I have ever had') AS mood"
+    ignore_column_names: true
+  # Pure-Python, fully deterministic string transform.
+  - name: normalize-text
+    reference_sql: "SELECT nlp.main.normalize('  Cafe   DELUXE  ') AS canonical"
+    ignore_column_names: true
+  # Model-dependent lemma string reframed as a stable containment predicate (VGI920).
+  - name: lemmatize-contains-base-form
+    reference_sql: "SELECT nlp.main.lemmatize('The cats were running quickly', 'en') LIKE '%run%' AS has_run"
+    ignore_column_names: true
+  # Model-dependent token string reframed as a stable containment predicate (VGI920).
+  - name: strip-stopwords-keeps-content
+    reference_sql: "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') LIKE '%great%' AS keeps_great"
+    ignore_column_names: true
+  # Model-dependent entity count reframed as a stable threshold predicate (VGI920).
+  - name: has-named-entities
+    reference_sql: "SELECT count(*) >= 2 AS has_entities FROM nlp.main.entities((SELECT 'Apple was founded by Steve Jobs in California.' AS body), lang := 'en')"
+    ignore_column_names: true
+  # Model-dependent tokenization reframed as a stable threshold predicate (VGI920).
+  - name: tokenizes-into-words
+    reference_sql: "SELECT count(*) > 3 AS many_tokens FROM nlp.main.tokens((SELECT 'The quick brown fox jumps.' AS body), lang := 'en')"
+    ignore_column_names: true
+  # Sentence segmentation is stable on clear boundaries; compared as a boolean.
+  - name: counts-two-sentences
+    reference_sql: "SELECT count(*) = 2 AS two_sentences FROM nlp.main.sentences((SELECT 'First sentence here. Second one follows.' AS body), lang := 'en')"
+    ignore_column_names: true
+  # Model-dependent noun-chunk count reframed as a stable threshold predicate (VGI920).
+  - name: has-noun-chunks
+    reference_sql: "SELECT count(*) >= 2 AS has_chunks FROM nlp.main.noun_chunks((SELECT 'The big red car drove down the long road.' AS body), lang := 'en')"
+    ignore_column_names: true
+  # Browses the supported_languages discovery table; stable boolean.
+  - name: english-pipeline-supported
+    reference_sql: "SELECT count(*) > 0 AS supported FROM nlp.main.supported_languages() WHERE lang_code = 'en'"
+    ignore_column_names: true

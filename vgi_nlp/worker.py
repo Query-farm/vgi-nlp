@@ -187,12 +187,11 @@ _SCHEMA_CATEGORIES = json.dumps(
 
 
 # Fixed analyst-suitability suite (VGI152 / VGI920). `vgi-lint simulate` drives an
-# LLM analyst through each task -- it sees only the `prompt` plus the live catalog
-# listing, never the `reference_sql`. Grading runs `reference_sql` against THIS
-# worker and compares result sets, so model-dependent outputs (NER counts, lemmas)
-# are still deterministic: both sides use the same pinned `en_core_web_sm`. Tasks
-# use `ignore_column_names` (values are what matter) and `unordered` for the
-# table functions, whose row order is intentionally not guaranteed.
+# LLM analyst through each task -- it sees only the public {name, prompt} plus the
+# live catalog listing. VGI416: the grader-only fields (`reference_sql`,
+# `ignore_column_names`) live in the private `vgi-agent-tests.yaml` sidecar at the
+# repo root, never in catalog metadata. Model-dependent outputs (NER counts, lemmas)
+# still grade deterministically: both sides use the same pinned `en_core_web_sm`.
 _AGENT_TEST_TASKS = json.dumps(
     [
         {
@@ -202,11 +201,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "'Bonjour tout le monde, comment allez-vous aujourd''hui?' and return its "
                 "two-letter ISO-639 language code in a column named lang."
             ),
-            # Deterministic string output (fastText lid.176 is deterministic).
-            "reference_sql": (
-                "SELECT nlp.main.detect_lang('Bonjour tout le monde, comment allez-vous aujourd''hui?') AS lang"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "confident-english",
@@ -216,13 +210,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "single boolean column named confident_english that is true only when the "
                 "detected ISO-639 code is 'en' and the detection confidence exceeds 0.9."
             ),
-            # Float confidence reframed as a stable boolean threshold predicate (VGI920).
-            "reference_sql": (
-                "SELECT (nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') = 'en' "
-                "AND nlp.main.detect_lang_conf('The quick brown fox jumps over the lazy dog') > 0.9) "
-                "AS confident_english"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "sentiment-is-positive",
@@ -232,12 +219,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "return a single boolean column named is_positive that is true when the score is "
                 "above the standard positive threshold of 0.05."
             ),
-            # Float score reframed as a stable boolean threshold predicate (VGI920).
-            "reference_sql": (
-                "SELECT nlp.main.sentiment('I absolutely love this product, it works wonderfully!') > 0.05 "
-                "AS is_positive"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "sentiment-label",
@@ -246,11 +227,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "'This is the worst experience I have ever had' into a coarse label of "
                 "negative, neutral, or positive, and return the label in a column named mood."
             ),
-            # Deterministic coarse label (neg/neu/pos) from fixed VADER thresholds.
-            "reference_sql": (
-                "SELECT nlp.main.sentiment_label('This is the worst experience I have ever had') AS mood"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "normalize-text",
@@ -259,9 +235,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "applying Unicode normalization, lowercasing, and collapsing runs of whitespace. "
                 "Return it in a column named canonical."
             ),
-            # Pure-Python, fully deterministic string transform.
-            "reference_sql": "SELECT nlp.main.normalize('  Cafe   DELUXE  ') AS canonical",
-            "ignore_column_names": True,
         },
         {
             "name": "lemmatize-contains-base-form",
@@ -271,11 +244,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "the base form 'run'. Return a single boolean column named has_run. Treat the "
                 "text as English."
             ),
-            # Model-dependent lemma string reframed as a stable containment predicate (VGI920).
-            "reference_sql": (
-                "SELECT nlp.main.lemmatize('The cats were running quickly', 'en') LIKE '%run%' AS has_run"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "strip-stopwords-keeps-content",
@@ -285,11 +253,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "the stop-word removal. Return a single boolean column named keeps_great. Treat "
                 "the text as English."
             ),
-            # Model-dependent token string reframed as a stable containment predicate (VGI920).
-            "reference_sql": (
-                "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') LIKE '%great%' AS keeps_great"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "has-named-entities",
@@ -298,12 +261,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "contains at least two named entities. Treat the text as English. Return a single "
                 "boolean column named has_entities."
             ),
-            # Model-dependent entity count reframed as a stable threshold predicate (VGI920).
-            "reference_sql": (
-                "SELECT count(*) >= 2 AS has_entities FROM nlp.main.entities("
-                "(SELECT 'Apple was founded by Steve Jobs in California.' AS body), lang := 'en')"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "tokenizes-into-words",
@@ -313,12 +270,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "tokens. Treat the text as English. Return a single boolean column named "
                 "many_tokens."
             ),
-            # Model-dependent tokenization reframed as a stable threshold predicate (VGI920).
-            "reference_sql": (
-                "SELECT count(*) > 3 AS many_tokens FROM nlp.main.tokens("
-                "(SELECT 'The quick brown fox jumps.' AS body), lang := 'en')"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "counts-two-sentences",
@@ -327,12 +278,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "decide whether it contains exactly two sentences. Treat the text as English. "
                 "Return a single boolean column named two_sentences."
             ),
-            # Sentence segmentation is stable on clear boundaries; compared as a boolean.
-            "reference_sql": (
-                "SELECT count(*) = 2 AS two_sentences FROM nlp.main.sentences("
-                "(SELECT 'First sentence here. Second one follows.' AS body), lang := 'en')"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "has-noun-chunks",
@@ -342,12 +287,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "least two noun chunks. Treat the text as English. Return a single boolean column "
                 "named has_chunks."
             ),
-            # Model-dependent noun-chunk count reframed as a stable threshold predicate (VGI920).
-            "reference_sql": (
-                "SELECT count(*) >= 2 AS has_chunks FROM nlp.main.noun_chunks("
-                "(SELECT 'The big red car drove down the long road.' AS body), lang := 'en')"
-            ),
-            "ignore_column_names": True,
         },
         {
             "name": "english-pipeline-supported",
@@ -356,11 +295,6 @@ _AGENT_TEST_TASKS = json.dumps(
                 "code 'en'), i.e. whether English text can be lemmatized and run through NER "
                 "without naming a custom model. Return a single boolean column named supported."
             ),
-            # Browses the supported_languages discovery table; stable boolean.
-            "reference_sql": (
-                "SELECT count(*) > 0 AS supported FROM nlp.main.supported_languages() WHERE lang_code = 'en'"
-            ),
-            "ignore_column_names": True,
         },
     ]
 )
@@ -480,7 +414,7 @@ _NLP_CATALOG = Catalog(
     },
     schemas=[
         Schema(
-            name="main",
+            path=["main"],
             comment="Classical NLP: language ID, sentiment, NER, tokenization for SQL",
             tags={
                 "vgi.title": "NLP Functions (main)",

@@ -40,6 +40,7 @@ def test_detect_lang_scalar_end_to_end() -> None:
         results = list(
             client.scalar_function(
                 function_name="detect_lang",
+                schema_path=["main"],
                 input=iter([batch]),
                 arguments=Arguments(positional=[pa.scalar("text")]),
             )
@@ -53,6 +54,7 @@ def test_sentiment_scalar_end_to_end() -> None:
         results = list(
             client.scalar_function(
                 function_name="sentiment",
+                schema_path=["main"],
                 input=iter([batch]),
                 arguments=Arguments(positional=[pa.scalar("text")]),
             )
@@ -71,6 +73,7 @@ def test_entities_table_in_out_end_to_end() -> None:
         out = list(
             client.table_in_out_function(
                 function_name="entities",
+                schema_path=["main"],
                 input=iter([batch]),
                 arguments=Arguments(named={"id": pa.scalar("id"), "lang": pa.scalar("en")}),
             )
