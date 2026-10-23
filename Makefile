@@ -13,7 +13,7 @@
 # spaCy en_core_web_sm wheel, so `uv run` gives the worker its model.
 WORKER_STDIO   ?= uv run --python 3.13 nlp_worker.py
 
-# haybarn-unittest: the DuckDB sqllogictest runner (uv tool install haybarn-unittest).
+# haybarn-unittest: the DuckDB sqllogictest runner (uv tool install 'haybarn-unittest<2').
 HAYBARN        ?= haybarn-unittest
 TEST_DIR        = .
 TEST_PATTERN    = test/sql/*
@@ -38,7 +38,7 @@ pytest:
 test-sql: fasttext
 	@command -v $(HAYBARN) >/dev/null 2>&1 || { \
 		echo "ERROR: $(HAYBARN) not found. Install it with:" >&2; \
-		echo "  uv tool install haybarn-unittest" >&2; \
+		echo "  uv tool install 'haybarn-unittest<2'" >&2; \
 		echo "  (then ensure ~/.local/bin is on PATH)" >&2; \
 		exit 1; \
 	}
