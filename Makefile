@@ -13,7 +13,11 @@
 # spaCy en_core_web_sm wheel, so `uv run` gives the worker its model.
 WORKER_STDIO   ?= uv run --python 3.13 nlp_worker.py
 
-# haybarn-unittest: the DuckDB sqllogictest runner (uv tool install 'haybarn-unittest<2').
+# haybarn-unittest: the DuckDB sqllogictest runner
+#   uv tool install --prerelease allow 'haybarn-unittest>=2.0.0rc11,<2.1'
+# haybarn 2.0 is required: its community `vgi` extension is the one that speaks the
+# worker's VGI protocol (vgi.v3 / 3.1). --keep-home lets the runner see the
+# extensions installed under the real $HOME (haybarn-unittest 2.0 isolates it).
 HAYBARN        ?= haybarn-unittest
 TEST_DIR        = .
 TEST_PATTERN    = test/sql/*
@@ -38,11 +42,11 @@ pytest:
 test-sql: fasttext
 	@command -v $(HAYBARN) >/dev/null 2>&1 || { \
 		echo "ERROR: $(HAYBARN) not found. Install it with:" >&2; \
-		echo "  uv tool install 'haybarn-unittest<2'" >&2; \
+		echo "  uv tool install --prerelease allow 'haybarn-unittest>=2.0.0rc11,<2.1'" >&2; \
 		echo "  (then ensure ~/.local/bin is on PATH)" >&2; \
 		exit 1; \
 	}
-	VGI_NLP_WORKER="$(WORKER_STDIO)" $(HAYBARN) --test-dir "$(TEST_DIR)" "$(TEST_PATTERN)"
+	VGI_NLP_WORKER="$(WORKER_STDIO)" $(HAYBARN) --keep-home --test-dir "$(TEST_DIR)" "$(TEST_PATTERN)"
 
 # Download every model the worker/tests need.
 models: spacy fasttext

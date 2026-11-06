@@ -26,7 +26,7 @@ import json
 from typing import Any
 
 from vgi import Worker
-from vgi.catalog import Catalog, Schema, Table
+from vgi.catalog import Catalog, ConstraintInfo, Schema, Table, constraint_record
 
 from vgi_nlp import pipelines
 from vgi_nlp.scalars import SCALAR_FUNCTIONS
@@ -332,13 +332,36 @@ _SUPPORTED_LANGUAGES_DOC_MD = (
     "listed here can be lemmatized, tokenized, or run through NER without naming a custom model."
 )
 
+
+def _trusted(table: str, constraint_id: str, kind: str, columns: list[list[str]]) -> ConstraintInfo:
+    """Build an enforced, all-rows constraint record on a table in the ``main`` schema.
+
+    DuckDB only reads ENFORCED + ALL_ROWS records, so declare one only when every
+    row the table can return satisfies it.
+
+    Args:
+        table: The table the constraint belongs to.
+        constraint_id: Identifier unique within the table.
+        kind: ``PRIMARY_KEY``, ``UNIQUE``, ``NOT_NULL``, ``CHECK`` or ``FOREIGN_KEY``.
+        columns: Column paths the constraint covers, e.g. ``[["lang_code"]]``.
+
+    Returns:
+        The canonical constraint record.
+    """
+    return constraint_record(
+        ["main"], table, constraint_id, kind, columns, enforcement="ENFORCED", validation="ALL_ROWS"
+    )
+
+
 _DISCOVERY_TABLES: list[Table] = [
     Table(
         name="supported_languages",
         function=SupportedLanguages,
         comment="Languages with a default spaCy pipeline: (lang_code, spacy_model) -- discovery table.",
-        primary_key=(("lang_code",),),
-        not_null=("lang_code", "spacy_model"),
+        constraints=(
+            _trusted("supported_languages", "pk", "PRIMARY_KEY", [["lang_code"]]),
+            _trusted("supported_languages", "spacy_model_not_null", "NOT_NULL", [["spacy_model"]]),
+        ),
         column_comments={
             "lang_code": "ISO-639 language code accepted by the `lang` argument.",
             "spacy_model": "Default small spaCy pipeline that backs this language.",

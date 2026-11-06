@@ -11,7 +11,7 @@ statement ok
 LOAD vgi;
 
 statement ok
-ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION '${VGI_NLP_WORKER}');
+ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION '{VGI_NLP_WORKER}');
 
 statement ok
 CREATE TEMP TABLE articles AS
