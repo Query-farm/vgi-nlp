@@ -1,6 +1,6 @@
 [project]
 name = "vgi-nlp"
-version = "0.2.0"
+version = "0.2.1"
 description = "Classical NLP (spaCy + fastText + VADER) as a VGI worker for DuckDB/SQL"
 readme = "README.md"
 # Capped below 3.14: fasttext-predict (and spaCy's compiled deps) publish no
