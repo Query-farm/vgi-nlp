@@ -17,7 +17,7 @@ lexicon sentiment — all callable as SQL scalar and table functions. Built on
 
 ```sql
 INSTALL vgi FROM community; LOAD vgi;
-ATTACH 'nlp' (TYPE vgi, LOCATION 'uv run nlp_worker.py');
+ATTACH 'nlp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.2.1 vgi-nlp-worker');
 
 SELECT nlp.detect_lang(review) AS lang, count(*) FROM reviews GROUP BY 1;
 SELECT id, nlp.sentiment(body) AS score FROM reviews;
@@ -29,6 +29,41 @@ SELECT * FROM nlp.entities((SELECT id, body FROM articles), id := 'id');
 > / sentiment / language-ID over millions of rows, a few-MB spaCy pipeline is
 > orders of magnitude cheaper and faster than a per-row LLM call. This is the
 > bulk-text-enrichment primitive that sits *upstream* of the LLM workers.
+
+## Quick start
+
+The worker isn't on PyPI; [uv](https://docs.astral.sh/uv/) runs it straight from a tagged release on GitHub. `uvx` builds an isolated environment on the first ATTACH and reuses it afterwards:
+
+```sql
+INSTALL vgi FROM community;
+LOAD vgi;
+
+ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.2.1 vgi-nlp-worker');
+
+-- Detect the language of a French string.
+SELECT nlp.main.detect_lang('Bonjour tout le monde') AS lang;
+
+-- Score the sentiment of a positive English review.
+SELECT nlp.main.sentiment('I absolutely love this product!') AS score;
+```
+
+The spaCy pipelines and the fastText language-ID model are loaded lazily; see [Models](#models) for what to install.
+
+Change `@v0.2.1` to move to a newer release.
+
+### Other ways to run it
+
+- **Docker** (the image bundles the worker and its dependencies):
+
+  ```sql
+  ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-nlp:0.2.1');
+  ```
+
+- **From a local checkout** (`git clone https://github.com/Query-farm/vgi-nlp`), point `LOCATION` at `uv run --project /path/to/vgi-nlp vgi-nlp-worker`.
+
+### Build from source
+
+To build the worker yourself, see [Development](#development).
 
 ## How it maps spaCy onto SQL
 
