@@ -68,6 +68,9 @@ _DEFAULT_SPACY_MODEL: dict[str, str] = {
 # The compressed `.ftz` (917 KB) is preferred; the full `.bin` (126 MB) also works.
 _FASTTEXT_ENV = "VGI_NLP_FASTTEXT_MODEL"
 _FASTTEXT_FILENAMES = ("lid.176.ftz", "lid.176.bin")
+_FASTTEXT_URL = "https://dl.fbaipublicfiles.com/fasttext/supervised-models/lid.176.ftz"
+# Set to a non-empty value to disable the first-use download of lid.176.ftz.
+_NO_DOWNLOAD_ENV = "VGI_NLP_NO_MODEL_DOWNLOAD"
 
 _lock = threading.Lock()
 
@@ -112,6 +115,49 @@ def _fasttext_model_path() -> str:
     )
 
 
+def _download_fasttext_model() -> str:
+    """Download lid.176.ftz (~917 KB) into ``~/.cache/vgi-nlp`` and return its path.
+
+    Lets a fresh ``uvx`` install answer language-ID queries without a manual
+    download step. Written to a temp file and renamed so a concurrent or
+    interrupted download never leaves a truncated model behind.
+
+    Returns:
+        The path of the downloaded model file.
+    """
+    import tempfile
+    import urllib.request
+
+    cache_dir = os.path.join(os.path.expanduser("~"), ".cache", "vgi-nlp")
+    os.makedirs(cache_dir, exist_ok=True)
+    target = os.path.join(cache_dir, _FASTTEXT_FILENAMES[0])
+    fd, tmp = tempfile.mkstemp(dir=cache_dir, suffix=".part")
+    try:
+        with os.fdopen(fd, "wb") as out, urllib.request.urlopen(_FASTTEXT_URL, timeout=60) as resp:  # noqa: S310
+            out.write(resp.read())
+        os.replace(tmp, target)
+    finally:
+        with contextlib.suppress(FileNotFoundError):
+            os.unlink(tmp)
+    return target
+
+
+def _resolve_fasttext_model() -> str:
+    """Locate lid.176, downloading it on first use unless disabled or pinned."""
+    try:
+        return _fasttext_model_path()
+    except ModelNotAvailableError:
+        if os.environ.get(_FASTTEXT_ENV) or os.environ.get(_NO_DOWNLOAD_ENV):
+            raise
+    try:
+        return _download_fasttext_model()
+    except Exception as exc:  # network / filesystem failure: fall back to the hint
+        try:
+            return _fasttext_model_path()
+        except ModelNotAvailableError as missing:
+            raise ModelNotAvailableError(f"{missing}\n(automatic download failed: {exc})") from exc
+
+
 @lru_cache(maxsize=1)
 def _fasttext() -> fasttext.FastText._FastText:
     """The fastText lid.176 model, loaded once."""
@@ -120,7 +166,7 @@ def _fasttext() -> fasttext.FastText._FastText:
     # fastText prints a deprecation warning to stderr on load; silence it so it
     # does not pollute the VGI stderr channel.
     fasttext.FastText.eprint = lambda *_a, **_k: None
-    return fasttext.load_model(_fasttext_model_path())
+    return fasttext.load_model(_resolve_fasttext_model())
 
 
 def _clean_for_fasttext(text: str) -> str:
@@ -138,7 +184,7 @@ def detect_language(text: str | None) -> tuple[str | None, float]:
         return None, 0.0
     model = _fasttext()
     # Call the underlying C predictor directly rather than model.predict():
-    # fasttext-wheel's Python wrapper uses np.array(..., copy=False), which
+    # the upstream fastText Python wrapper uses np.array(..., copy=False), which
     # raises under NumPy >= 2. The C method returns [(prob, "__label__xx"), ...].
     predictions = model.f.predict(_clean_for_fasttext(text), 1, 0.0, "strict")
     if not predictions:

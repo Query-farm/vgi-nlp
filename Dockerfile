@@ -29,18 +29,14 @@ ENV PYTHONUNBUFFERED=1 \
 
 WORKDIR /app
 
-# The worker + HTTP-serving extra install from the source tree. fasttext-wheel
-# ships no cp313 wheel, so it builds from sdist and needs a C++ toolchain plus a
-# force-included <cstdint> (see ci.yml). curl backs the HEALTHCHECK + CI /health
-# smoke. build-essential is purged after the compile to keep the image slim.
+# The worker + HTTP-serving extra install from the source tree (all deps,
+# including fasttext-predict and the en_core_web_sm pipeline, are prebuilt
+# wheels). curl backs the HEALTHCHECK + CI /health smoke.
 COPY pyproject.toml README.md LICENSE ./
 COPY vgi_nlp ./vgi_nlp
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl build-essential \
-    && CXXFLAGS="-include cstdint" pip install '.[serve]' \
-    && pip install "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" \
-    && apt-get purge -y build-essential \
-    && apt-get autoremove -y \
+    && apt-get install -y --no-install-recommends curl \
+    && pip install '.[serve]' \
     && rm -rf /var/lib/apt/lists/*
 
 # fastText lid.176 language-ID model (~917 KB), located via VGI_NLP_FASTTEXT_MODEL.

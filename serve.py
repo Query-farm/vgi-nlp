@@ -1,9 +1,9 @@
 # /// script
-# requires-python = ">=3.13"
+# requires-python = ">=3.13,<3.14"
 # dependencies = [
 #     "vgi-python[http,oauth]",
 #     "spacy>=3.7",
-#     "fasttext-wheel",
+#     "fasttext-predict>=0.9.2.4",
 #     "vaderSentiment",
 # ]
 #

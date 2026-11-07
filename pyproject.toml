@@ -3,15 +3,22 @@ name = "vgi-nlp"
 version = "0.2.0"
 description = "Classical NLP (spaCy + fastText + VADER) as a VGI worker for DuckDB/SQL"
 readme = "README.md"
-requires-python = ">=3.13"
+# Capped below 3.14: fasttext-predict (and spaCy's compiled deps) publish no
+# cp314 wheels yet, and uv/uvx would otherwise pick the newest interpreter.
+requires-python = ">=3.13,<3.14"
 license = { file = "LICENSE" }
 authors = [{ name = "Query Farm", email = "hello@query.farm" }]
 keywords = ["vgi", "duckdb", "nlp", "spacy", "fasttext", "sentiment", "ner"]
 dependencies = [
     "vgi-python>=0.49.0",
     "spacy>=3.7",
-    "fasttext-wheel",
+    # Prediction-only fastText build with prebuilt wheels on every platform
+    # (fasttext-wheel has no cp313 wheel and needs a patched C++ compile).
+    "fasttext-predict>=0.9.2.4",
     "vaderSentiment",
+    # Default English spaCy pipeline, so `uvx --from git+...` installs are
+    # complete without a separate `spacy download` step.
+    "en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl",
 ]
 
 [project.optional-dependencies]
@@ -31,7 +38,6 @@ dev = [
     "mypy>=1.10",
     "ruff>=0.5",
     "pydoclint",
-    "en-core-web-sm",
 ]
 
 [project.scripts]
@@ -42,12 +48,13 @@ vgi-nlp-worker = "vgi_nlp.worker:main"
 [project.urls]
 Homepage = "https://query.farm"
 
-[tool.uv.sources]
-en-core-web-sm = { url = "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.8.0/en_core_web_sm-3.8.0-py3-none-any.whl" }
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+# en-core-web-sm is not on PyPI; it is a direct wheel URL dependency.
+allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
 packages = ["vgi_nlp"]

@@ -43,6 +43,13 @@ same for `strip_stopwords`. The **table-in-out** functions (`entities`,
    fails. The model wheel is pinned in `nlp_worker.py`'s PEP 723 header for this
    reason. `make models` (or `make spacy` / `make fasttext`) provisions models
    for local dev; the fastText `lid.176` model caches under `~/.cache/vgi-nlp`.
+   `en-core-web-sm` is also a main dependency (direct wheel URL; hatch
+   `allow-direct-references`) so `uvx --from git+...vgi-nlp vgi-nlp-worker` is
+   complete, and lid.176 downloads itself on first use unless
+   `VGI_NLP_NO_MODEL_DOWNLOAD` (or an explicit `VGI_NLP_FASTTEXT_MODEL`) is set.
+   fastText comes from `fasttext-predict` (prebuilt wheels; `fasttext-wheel` needed
+   a patched C++ compile), and `requires-python` is capped `<3.14` because it has
+   no cp314 wheels — `.python-version` pins 3.13 for `uv run`.
 2. **`haybarn-unittest` skips `require vgi`** — use explicit `statement ok` /
    `LOAD vgi;` in `.test` files (the ones here do).
 3. **fastText confidence can exceed 1.0.** Observed `1.0000131` for German;
