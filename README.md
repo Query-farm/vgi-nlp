@@ -238,7 +238,7 @@ Two test layers:
   exercising the full `ATTACH` → SQL path the way a user would. Install the
   runner with `uv tool install --prerelease allow 'haybarn-unittest>=2.0.0rc11,<2.1'`
   (binary lands in `~/.local/bin`; haybarn 2.0 is required, since the worker speaks VGI
-  protocol vgi.v3 / 3.1),
+  protocol vgi.v3 / 3.2),
   then `make test-sql`. The worker command is exported as `VGI_NLP_WORKER` and the
   `.test` files `LOAD vgi` + `ATTACH 'nlp' (TYPE vgi, LOCATION '{VGI_NLP_WORKER}')`.
 

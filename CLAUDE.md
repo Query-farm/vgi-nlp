@@ -77,7 +77,7 @@ uv run ruff check . && uv run mypy vgi_nlp/
 `make test-sql` exports `VGI_NLP_WORKER="uv run --python 3.13 nlp_worker.py"`,
 ensures models present, and runs `haybarn-unittest --keep-home --test-dir . "test/sql/*"`
 (install once: `uv tool install --prerelease allow 'haybarn-unittest>=2.0.0rc11,<2.1'`;
-haybarn 2.0 is required because the worker speaks VGI protocol vgi.v3 / 3.1). **The SQL suite is
+haybarn 2.0 is required because the worker speaks VGI protocol vgi.v3 / 3.2). **The SQL suite is
 authoritative** — it exercises the real RPC + model path that unit tests skip.
 CI runs unit + lint plus a gated `e2e` job (installs worker deps from PyPI +
 models + haybarn-unittest, launches the worker from the prepared venv so it
