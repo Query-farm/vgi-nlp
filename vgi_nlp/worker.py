@@ -407,7 +407,8 @@ _NLP_CATALOG = Catalog(
     comment="Classical NLP (spaCy + fastText + VADER): language ID, sentiment, NER, tokenization for SQL.",
     source_url="https://github.com/Query-farm/vgi-nlp",
     tags={
-        "vgi.title": "Classical NLP for SQL",
+        "vgi.title": "Classical NLP",
+        "vgi.subtitle": "Detect language, score sentiment, extract entities and tokenize text from queries.",
         "vgi.keywords": json.dumps(
             [
                 "nlp",
@@ -440,7 +441,7 @@ _NLP_CATALOG = Catalog(
             path=["main"],
             comment="Classical NLP: language ID, sentiment, NER, tokenization for SQL",
             tags={
-                "vgi.title": "NLP Functions (main)",
+                "vgi.title": "NLP functions",
                 "vgi.keywords": json.dumps(
                     [
                         "nlp",
