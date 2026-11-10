@@ -17,7 +17,7 @@ lexicon sentiment — all callable as SQL scalar and table functions. Built on
 
 ```sql
 INSTALL vgi FROM community; LOAD vgi;
-ATTACH 'nlp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.2.1 vgi-nlp-worker');
+ATTACH 'nlp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.3.0 vgi-nlp-worker');
 
 SELECT nlp.detect_lang(review) AS lang, count(*) FROM reviews GROUP BY 1;
 SELECT id, nlp.sentiment(body) AS score FROM reviews;
@@ -38,7 +38,7 @@ The worker isn't on PyPI; [uv](https://docs.astral.sh/uv/) runs it straight from
 INSTALL vgi FROM community;
 LOAD vgi;
 
-ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.2.1 vgi-nlp-worker');
+ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.3.0 vgi-nlp-worker');
 
 -- Detect the language of a French string.
 SELECT nlp.main.detect_lang('Bonjour tout le monde') AS lang;
@@ -49,14 +49,14 @@ SELECT nlp.main.sentiment('I absolutely love this product!') AS score;
 
 The spaCy pipelines and the fastText language-ID model are loaded lazily; see [Models](#models) for what to install.
 
-Change `@v0.2.1` to move to a newer release.
+Change `@v0.3.0` to move to a newer release.
 
 ### Other ways to run it
 
 - **Docker** (the image bundles the worker and its dependencies):
 
   ```sql
-  ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-nlp:0.2.1');
+  ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-nlp:0.3.0');
   ```
 
 - **From a local checkout** (`git clone https://github.com/Query-farm/vgi-nlp`), point `LOCATION` at `uv run --project /path/to/vgi-nlp vgi-nlp-worker`.
