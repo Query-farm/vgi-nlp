@@ -18,7 +18,7 @@ extension from the Haybarn community channel:
    `~/.cache/vgi-nlp` by the workflow before the suite runs.
 2. **Download the runner** — the matching `haybarn_unittest-*` asset per
    platform from the newest haybarn 2.0 (`haybarn-v2.0.*`) release. The worker
-   speaks VGI protocol vgi.v3 / 3.2, which only the haybarn 2.0 community `vgi`
+   speaks VGI protocol vgi.v3 / 3.3, which only the haybarn 2.0 community `vgi`
    extension accepts.
 3. **Preprocess** — the standalone runner links none of the extensions the
    tests gate on, so [`preprocess-require.awk`](preprocess-require.awk) rewrites

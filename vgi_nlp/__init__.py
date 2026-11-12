@@ -13,4 +13,4 @@ runs the worker over stdio (DuckDB subprocess) or, via ``serve.py``, HTTP.
 
 from __future__ import annotations
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
