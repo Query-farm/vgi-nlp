@@ -45,6 +45,7 @@ from vgi.table_in_out_function import TableInOutGenerator
 from vgi_rpc.rpc import OutputCollector
 
 from . import pipelines
+from .composed import NEGATIVE_REVIEW_ASPECTS, SENTIMENT_PER_ORGANIZATION, WORST_SENTENCE_PER_REVIEW
 from .meta import object_tags
 from .schema_utils import field
 
@@ -97,6 +98,8 @@ _EXECUTABLE_EXAMPLES = json.dumps(
                 "id := 'id', lang := 'en')"
             ),
         },
+        # Composed: entities joined back to their review and scored with sentiment.
+        {"description": SENTIMENT_PER_ORGANIZATION.description, "sql": SENTIMENT_PER_ORGANIZATION.sql},
     ]
 )
 
@@ -266,7 +269,7 @@ class Entities(_ExplodeFunction):
             "entities",
             "ent_text, label",
             "(SELECT 'Apple was founded by Steve Jobs in California.' AS body)",
-        )
+        ) + [SENTIMENT_PER_ORGANIZATION]
         tags = {
             **object_tags(
                 "Extract Named Entities",
@@ -450,7 +453,7 @@ class Sentences(_ExplodeFunction):
             "sentences",
             "sent_index, sentence",
             "(SELECT 'First sentence here. Second one follows.' AS body)",
-        )
+        ) + [WORST_SENTENCE_PER_REVIEW]
         tags = {
             **object_tags(
                 "Split Into Sentences",
@@ -526,7 +529,7 @@ class NounChunks(_ExplodeFunction):
             "noun_chunks",
             "chunk, root",
             "(SELECT 'The big red car drove down the long road.' AS body)",
-        )
+        ) + [NEGATIVE_REVIEW_ASPECTS]
         tags = {
             **object_tags(
                 "Extract Noun Chunks",

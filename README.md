@@ -159,6 +159,11 @@ GROUP BY 1, 2 ORDER BY n DESC LIMIT 20;
 -- sentence chunks ready to hand to an embedding worker
 SELECT id, sent_index, sentence
 FROM nlp.sentences((SELECT id, content FROM docs), id := 'id');
+
+-- the most negative sentence of each review (sentences + per-sentence sentiment)
+SELECT id, arg_min(sentence, nlp.sentiment(sentence)) AS worst_sentence
+FROM nlp.sentences((SELECT id, body FROM reviews), id := 'id', lang := 'en')
+GROUP BY id ORDER BY id;
 ```
 
 ## Models

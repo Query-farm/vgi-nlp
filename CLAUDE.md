@@ -6,23 +6,25 @@ Contributor/agent notes. User-facing docs live in `README.md`; this is the
 ## What this is
 
 A [VGI](https://query.farm) worker exposing **classical NLP** (spaCy + fastText
-language-ID + VADER sentiment) to DuckDB/SQL. `nlp_worker.py` assembles every
-function into one `nlp` catalog (single `main` schema) and runs it over stdio.
+language-ID + VADER sentiment) to DuckDB/SQL. `vgi_nlp/worker.py` assembles every
+function into one `nlp` catalog (single `main` schema); `nlp_worker.py` runs it over stdio.
 The point is bulk, cheap, per-row text enrichment that sits *upstream* of the
 LLM workers — not an LLM wrapper.
 
 ## Layout
 
 ```
-nlp_worker.py          repo-root stdio entry; PEP 723 inline deps (incl. the spaCy model wheel); main()
+nlp_worker.py          repo-root stdio entry; PEP 723 shim (incl. the spaCy model wheel) re-exporting vgi_nlp.worker
 serve.py               HTTP entry shim
 vgi_nlp/
+  worker.py            the `nlp` catalog (schema/catalog tags, agent-test tasks), NlpWorker, main()
+  composed.py          composed example queries (2+ objects per query), each defined once
   pipelines.py         loaded-once-and-cached spaCy/fastText/VADER lifecycle (the per-process state VGI pools)
   scalars.py           7 scalar functions (arity overloads for language/model options)
   tables.py            4 table-in-out functions (1 text row -> N rows, id passthrough)
   schema_utils.py      pa.Field comment helper
 tests/                 pytest: scalars / tables / Client integration (model-gated tests self-skip)
-test/sql/*.test        haybarn-unittest sqllogictest — authoritative E2E
+test/sql/*.test        haybarn-unittest sqllogictest — authoritative E2E (composed.test asserts composed examples + graders)
 Makefile               test / test-unit / test-sql / models / spacy / fasttext / lint / typecheck
 ```
 

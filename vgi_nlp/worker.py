@@ -29,6 +29,7 @@ from vgi import Worker
 from vgi.catalog import Catalog, ConstraintInfo, Schema, Table, constraint_record
 
 from vgi_nlp import pipelines
+from vgi_nlp.composed import COMPOSED_EXAMPLES
 from vgi_nlp.scalars import SCALAR_FUNCTIONS
 from vgi_nlp.tables import TABLE_FUNCTIONS, SupportedLanguages
 
@@ -142,6 +143,9 @@ _SCHEMA_EXAMPLE_QUERIES = json.dumps(
                 "(SELECT 1 AS id, 'Apple is based in California.' AS body), id := 'id', lang := 'en')"
             ),
         },
+        # Composed examples (several of the worker's objects in one query), defined
+        # once in vgi_nlp/composed.py and also listed on their driving object.
+        *({"description": e.description, "sql": e.sql} for e in COMPOSED_EXAMPLES),
     ]
 )
 
@@ -294,6 +298,26 @@ _AGENT_TEST_TASKS = json.dumps(
                 "Determine whether this worker has a default spaCy pipeline for English (ISO-639 "
                 "code 'en'), i.e. whether English text can be lemmatized and run through NER "
                 "without naming a custom model. Return a single boolean column named supported."
+            ),
+        },
+        {
+            "name": "most-negative-sentence-index",
+            "prompt": (
+                "Split the English review 'Our flight left on time. The seats were broken and the crew "
+                "was hostile. The snacks were tasty.' into sentences, score the sentiment of each "
+                "sentence, and return the 0-based position of the most negative sentence as a single "
+                "INTEGER column named worst_index. Treat the text as English."
+            ),
+        },
+        {
+            "name": "count-texts-with-default-pipeline",
+            "prompt": (
+                "Detect the language of each of these four texts: 'The weather is lovely today and we are "
+                "going to the beach.', 'Das Wetter ist heute schön und wir fahren an den Strand.', "
+                "'Cuaca hari ini sangat cerah dan kami akan pergi ke pantai bersama keluarga.', and "
+                "'Bugün hava çok güzel ve sahile gidiyoruz.'. Count how many of them are written in a "
+                "language for which this worker has a default spaCy pipeline. Return a single BIGINT "
+                "column named n_supported."
             ),
         },
     ]

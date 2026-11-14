@@ -50,3 +50,13 @@ tasks:
   - name: english-pipeline-supported
     reference_sql: "SELECT count(*) > 0 AS supported FROM nlp.main.supported_languages() WHERE lang_code = 'en'"
     ignore_column_names: true
+  # Composed: sentences -> per-sentence sentiment -> arg_min. Offline + deterministic
+  # (pinned lang, fixed VADER lexicon); scores are 0.0 / -0.69 / 0.0, so no near-tie.
+  - name: most-negative-sentence-index
+    reference_sql: "SELECT arg_min(sent_index, nlp.main.sentiment(sentence)) AS worst_index FROM nlp.main.sentences((SELECT 'Our flight left on time. The seats were broken and the crew was hostile. The snacks were tasty.' AS body), lang := 'en')"
+    ignore_column_names: true
+  # Composed: detect_lang joined to the supported_languages discovery table. fastText
+  # resolves en/de/id/tr with >0.9 confidence; en + de have pipelines, id + tr do not.
+  - name: count-texts-with-default-pipeline
+    reference_sql: "SELECT count(*) AS n_supported FROM (VALUES ('The weather is lovely today and we are going to the beach.'), ('Das Wetter ist heute schön und wir fahren an den Strand.'), ('Cuaca hari ini sangat cerah dan kami akan pergi ke pantai bersama keluarga.'), ('Bugün hava çok güzel ve sahile gidiyoruz.')) AS v(t) JOIN nlp.main.supported_languages AS s ON s.lang_code = nlp.main.detect_lang(v.t)"
+    ignore_column_names: true

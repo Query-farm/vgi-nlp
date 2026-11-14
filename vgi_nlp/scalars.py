@@ -43,6 +43,7 @@ from vgi.arguments import ConstParam
 from vgi.metadata import FunctionExample
 
 from . import pipelines
+from .composed import LANGUAGE_ROUTING
 from .meta import object_tags
 
 _SRC = "vgi_nlp/scalars.py"
@@ -78,10 +79,13 @@ class DetectLang(ScalarFunction):
         name = "detect_lang"
         description = "Detect the dominant language of each text (ISO-639 code, fastText lid.176)"
         categories = ["language-id"]
-        examples = _ex(
-            "SELECT nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') AS lang",
-            "Identify the language of a literal string",
-        )
+        examples = [
+            *_ex(
+                "SELECT nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') AS lang",
+                "Identify the language of a literal string",
+            ),
+            LANGUAGE_ROUTING,
+        ]
         tags = object_tags(
             "Detect Language Code",
             "Identify the dominant natural language of each input string and return its "
