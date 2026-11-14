@@ -270,3 +270,7 @@ Written by [Query.Farm](https://query.farm).
 
 Copyright 2026 Query Farm LLC - https://query.farm
 
+
+## Executed notebook
+
+[Audit cleaning and sentiment](notebooks/README.md) compares authored English text before and after preprocessing, using actual worker scores and token diagnostics.
