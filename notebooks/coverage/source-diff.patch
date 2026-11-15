@@ -1,0 +1,229 @@
+diff --git a/vgi_nlp/composed.py b/vgi_nlp/composed.py
+new file mode 100644
+index 0000000..897d258
+--- /dev/null
++++ b/vgi_nlp/composed.py
+@@ -0,0 +1,97 @@
++"""Composed example queries: several of the worker's objects in one realistic query.
++
++Each example below is defined exactly once and referenced from both the schema-level
++``vgi.example_queries`` list (``vgi_nlp/worker.py``) and the example list of the
++object that drives the query (so agents browsing that function see it among its
++first five examples). Every query is self-contained -- it builds its input relation
++inline with ``VALUES`` -- and is offline and deterministic (pinned ``lang``, fixed
++fastText / spaCy / VADER models); ``test/sql/composed.test`` asserts their rows.
++"""
++
++from __future__ import annotations
++
++from vgi.metadata import FunctionExample
++
++#: sentences + sentiment: the most negative sentence of each review.
++WORST_SENTENCE_PER_REVIEW = FunctionExample(
++    description=(
++        "Split each review into sentences and score every sentence's sentiment to find the single most "
++        "negative sentence per review -- pinpointing the complaint inside otherwise mixed feedback."
++    ),
++    sql=(
++        "WITH reviews(id, body) AS (VALUES "
++        "(1, 'The hotel location was perfect. The room was filthy and the staff were rude. Breakfast was fine.'), "
++        "(2, 'Checkout was a frustrating mess. Otherwise it was a wonderful stay with a lovely view!')) "
++        "SELECT id, arg_min(sentence, nlp.main.sentiment(sentence)) AS worst_sentence, "
++        "round(min(nlp.main.sentiment(sentence)), 3) AS worst_score "
++        "FROM nlp.main.sentences((SELECT id, body FROM reviews), id := 'id', lang := 'en') "
++        "GROUP BY id ORDER BY id"
++    ),
++)
++
++#: entities + sentiment: average review sentiment per organization mentioned.
++SENTIMENT_PER_ORGANIZATION = FunctionExample(
++    description=(
++        "Extract the organizations (ORG entities) mentioned in each review, join them back to their "
++        "review by id, and average the review sentiment per organization -- brand perception from free text."
++    ),
++    sql=(
++        "WITH reviews(id, body) AS (VALUES "
++        "(1, 'I love my new Apple laptop, the battery life is amazing.'), "
++        "(2, 'Microsoft support was awful and rude.'), "
++        "(3, 'The Apple store staff were friendly and quick to help.'), "
++        "(4, 'Microsoft keeps crashing my laptop, which is incredibly frustrating.')) "
++        "SELECT e.ent_text AS organization, count(*) AS mentions, "
++        "round(avg(nlp.main.sentiment(r.body)), 3) AS avg_sentiment "
++        "FROM nlp.main.entities((SELECT id, body FROM reviews), id := 'id', lang := 'en') AS e "
++        "JOIN reviews AS r USING (id) "
++        "WHERE e.label = 'ORG' "
++        "GROUP BY e.ent_text ORDER BY avg_sentiment DESC"
++    ),
++)
++
++#: detect_lang + supported_languages: route a multilingual corpus to the spaCy pipelines.
++LANGUAGE_ROUTING = FunctionExample(
++    description=(
++        "Detect each document's language and look it up in the supported_languages table to see which "
++        "default spaCy pipeline would process it -- documents in a language without one (here Swahili) "
++        "get NULL and cannot be tokenized or run through NER without naming a model."
++    ),
++    sql=(
++        "WITH docs(id, body) AS (VALUES "
++        "(1, 'The quarterly report shows strong growth in every region.'), "
++        "(2, 'Le rapport trimestriel montre une forte croissance dans toutes les régions.'), "
++        "(3, 'Ripoti ya robo mwaka inaonyesha ukuaji mkubwa katika kila mkoa.')), "
++        "detected AS (SELECT id, nlp.main.detect_lang(body) AS lang FROM docs) "
++        "SELECT d.id, d.lang, s.spacy_model, s.spacy_model IS NOT NULL AS has_default_pipeline "
++        "FROM detected AS d LEFT JOIN nlp.main.supported_languages AS s ON s.lang_code = d.lang "
++        "ORDER BY d.id"
++    ),
++)
++
++#: noun_chunks + sentiment_label + lemmatize: what negative reviews complain about.
++NEGATIVE_REVIEW_ASPECTS = FunctionExample(
++    description=(
++        "Keep only reviews labelled negative, extract their noun chunks, and lemmatize each chunk's head "
++        "noun so 'rooms' and 'room' count together -- ranking the aspects that negative reviews mention."
++    ),
++    sql=(
++        "WITH reviews(id, body) AS (VALUES "
++        "(1, 'The rooms were dirty and the beds were terrible.'), "
++        "(2, 'Awful service, and the room smelled bad.'), "
++        "(3, 'The beds were comfortable and the view was great.'), "
++        "(4, 'The breakfast was cold and the coffee was disgusting.')) "
++        "SELECT nlp.main.lemmatize(lower(root), 'en') AS aspect, count(DISTINCT id) AS negative_reviews "
++        "FROM nlp.main.noun_chunks("
++        "(SELECT id, body FROM reviews WHERE nlp.main.sentiment_label(body) = 'neg'), id := 'id', lang := 'en') "
++        "GROUP BY aspect ORDER BY negative_reviews DESC, aspect"
++    ),
++)
++
++#: Every composed example, in schema-level display order.
++COMPOSED_EXAMPLES: list[FunctionExample] = [
++    WORST_SENTENCE_PER_REVIEW,
++    SENTIMENT_PER_ORGANIZATION,
++    LANGUAGE_ROUTING,
++    NEGATIVE_REVIEW_ASPECTS,
++]
+diff --git a/vgi_nlp/scalars.py b/vgi_nlp/scalars.py
+index 4fa1de5..886ee78 100644
+--- a/vgi_nlp/scalars.py
++++ b/vgi_nlp/scalars.py
+@@ -43,6 +43,7 @@ from vgi.arguments import ConstParam
+ from vgi.metadata import FunctionExample
+ 
+ from . import pipelines
++from .composed import LANGUAGE_ROUTING
+ from .meta import object_tags
+ 
+ _SRC = "vgi_nlp/scalars.py"
+@@ -78,10 +79,13 @@ class DetectLang(ScalarFunction):
+         name = "detect_lang"
+         description = "Detect the dominant language of each text (ISO-639 code, fastText lid.176)"
+         categories = ["language-id"]
+-        examples = _ex(
+-            "SELECT nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') AS lang",
+-            "Identify the language of a literal string",
+-        )
++        examples = [
++            *_ex(
++                "SELECT nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') AS lang",
++                "Identify the language of a literal string",
++            ),
++            LANGUAGE_ROUTING,
++        ]
+         tags = object_tags(
+             "Detect Language Code",
+             "Identify the dominant natural language of each input string and return its "
+diff --git a/vgi_nlp/tables.py b/vgi_nlp/tables.py
+index cee9d26..6719a4b 100644
+--- a/vgi_nlp/tables.py
++++ b/vgi_nlp/tables.py
+@@ -45,6 +45,7 @@ from vgi.table_in_out_function import TableInOutGenerator
+ from vgi_rpc.rpc import OutputCollector
+ 
+ from . import pipelines
++from .composed import NEGATIVE_REVIEW_ASPECTS, SENTIMENT_PER_ORGANIZATION, WORST_SENTENCE_PER_REVIEW
+ from .meta import object_tags
+ from .schema_utils import field
+ 
+@@ -97,6 +98,8 @@ _EXECUTABLE_EXAMPLES = json.dumps(
+                 "id := 'id', lang := 'en')"
+             ),
+         },
++        # Composed: entities joined back to their review and scored with sentiment.
++        {"description": SENTIMENT_PER_ORGANIZATION.description, "sql": SENTIMENT_PER_ORGANIZATION.sql},
+     ]
+ )
+ 
+@@ -266,7 +269,7 @@ class Entities(_ExplodeFunction):
+             "entities",
+             "ent_text, label",
+             "(SELECT 'Apple was founded by Steve Jobs in California.' AS body)",
+-        )
++        ) + [SENTIMENT_PER_ORGANIZATION]
+         tags = {
+             **object_tags(
+                 "Extract Named Entities",
+@@ -450,7 +453,7 @@ class Sentences(_ExplodeFunction):
+             "sentences",
+             "sent_index, sentence",
+             "(SELECT 'First sentence here. Second one follows.' AS body)",
+-        )
++        ) + [WORST_SENTENCE_PER_REVIEW]
+         tags = {
+             **object_tags(
+                 "Split Into Sentences",
+@@ -526,7 +529,7 @@ class NounChunks(_ExplodeFunction):
+             "noun_chunks",
+             "chunk, root",
+             "(SELECT 'The big red car drove down the long road.' AS body)",
+-        )
++        ) + [NEGATIVE_REVIEW_ASPECTS]
+         tags = {
+             **object_tags(
+                 "Extract Noun Chunks",
+diff --git a/vgi_nlp/worker.py b/vgi_nlp/worker.py
+index a5bd6bb..e865863 100644
+--- a/vgi_nlp/worker.py
++++ b/vgi_nlp/worker.py
+@@ -29,6 +29,7 @@ from vgi import Worker
+ from vgi.catalog import Catalog, ConstraintInfo, Schema, Table, constraint_record
+ 
+ from vgi_nlp import pipelines
++from vgi_nlp.composed import COMPOSED_EXAMPLES
+ from vgi_nlp.scalars import SCALAR_FUNCTIONS
+ from vgi_nlp.tables import TABLE_FUNCTIONS, SupportedLanguages
+ 
+@@ -142,6 +143,9 @@ _SCHEMA_EXAMPLE_QUERIES = json.dumps(
+                 "(SELECT 1 AS id, 'Apple is based in California.' AS body), id := 'id', lang := 'en')"
+             ),
+         },
++        # Composed examples (several of the worker's objects in one query), defined
++        # once in vgi_nlp/composed.py and also listed on their driving object.
++        *({"description": e.description, "sql": e.sql} for e in COMPOSED_EXAMPLES),
+     ]
+ )
+ 
+@@ -296,6 +300,26 @@ _AGENT_TEST_TASKS = json.dumps(
+                 "without naming a custom model. Return a single boolean column named supported."
+             ),
+         },
++        {
++            "name": "most-negative-sentence-index",
++            "prompt": (
++                "Split the English review 'Our flight left on time. The seats were broken and the crew "
++                "was hostile. The snacks were tasty.' into sentences, score the sentiment of each "
++                "sentence, and return the 0-based position of the most negative sentence as a single "
++                "INTEGER column named worst_index. Treat the text as English."
++            ),
++        },
++        {
++            "name": "count-texts-with-default-pipeline",
++            "prompt": (
++                "Detect the language of each of these four texts: 'The weather is lovely today and we are "
++                "going to the beach.', 'Das Wetter ist heute schön und wir fahren an den Strand.', "
++                "'Cuaca hari ini sangat cerah dan kami akan pergi ke pantai bersama keluarga.', and "
++                "'Bugün hava çok güzel ve sahile gidiyoruz.'. Count how many of them are written in a "
++                "language for which this worker has a default spaCy pipeline. Return a single BIGINT "
++                "column named n_supported."
++            ),
++        },
+     ]
+ )

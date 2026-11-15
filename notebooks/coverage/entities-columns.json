@@ -1,0 +1,54 @@
+{
+  "query": "DESCRIBE SELECT * FROM nlp.main.entities((SELECT 1 AS id,'Apple Inc. hired a person in Paris.' AS body),id:='id',text:='body',lang:='en',model:='en_core_web_sm')",
+  "captured_at": "2026-11-15T01:08:52.108948+00:00",
+  "columns": [
+    "column_name",
+    "column_type",
+    "null",
+    "key",
+    "default",
+    "extra"
+  ],
+  "rows": [
+    [
+      "id",
+      "INTEGER",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "ent_text",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "label",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "start_char",
+      "INTEGER",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "end_char",
+      "INTEGER",
+      "YES",
+      null,
+      null,
+      null
+    ]
+  ]
+}

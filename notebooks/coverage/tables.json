@@ -1,0 +1,50 @@
+{
+  "query": "SELECT * FROM duckdb_tables() WHERE database_name='nlp'",
+  "captured_at": "2026-11-15T01:08:52.074744+00:00",
+  "columns": [
+    "database_name",
+    "database_oid",
+    "schema_name",
+    "schema_oid",
+    "table_name",
+    "table_oid",
+    "comment",
+    "tags",
+    "internal",
+    "temporary",
+    "has_primary_key",
+    "estimated_size",
+    "column_count",
+    "index_count",
+    "check_constraint_count",
+    "sql"
+  ],
+  "rows": [
+    [
+      "nlp",
+      22595,
+      "main",
+      22596,
+      "supported_languages",
+      22741,
+      "Languages with a default spaCy pipeline: (lang_code, spacy_model) -- discovery table.",
+      {
+        "domain": "text-analytics",
+        "vgi.category": "discovery",
+        "vgi.doc_llm": "## `supported_languages` (table)\n\nOne row per language that has a default spaCy pipeline, so the extraction table functions and the `lemmatize` / `strip_stopwords` scalars can process it without naming a model. Columns:\n\n- `lang_code` (`VARCHAR`, primary key) -- the ISO-639 code you pass as the `lang` argument (or that per-row auto-detect must resolve to).\n- `spacy_model` (`VARCHAR`) -- the default small spaCy pipeline that backs it.\n\nRead this table directly to discover which languages can be lemmatized, tokenized, or run through NER. Note `detect_lang` recognizes far more languages (fastText covers 176) than have a spaCy pipeline installed -- this table lists only the latter. Backed by the identically-named table function, so the rows are identical.",
+        "vgi.doc_md": "# `supported_languages`\n\nDiscovery table of every language the worker has a default spaCy pipeline for, exposed as a regular table you can read without parentheses.\n\n## Columns\n\n- `lang_code` (`VARCHAR`, primary key) -- ISO-639 code accepted by the `lang` argument.\n- `spacy_model` (`VARCHAR`) -- the default small spaCy model backing it.\n\nLanguage detection (`detect_lang`) spans 176 languages via fastText, but only the languages listed here can be lemmatized, tokenized, or run through NER without naming a custom model.",
+        "vgi.example_queries": "[{\"description\": \"Count the languages that have a default spaCy pipeline.\", \"sql\": \"SELECT count(*) AS n_languages FROM nlp.main.supported_languages\"}, {\"description\": \"Look up the default spaCy model for English.\", \"sql\": \"SELECT spacy_model FROM nlp.main.supported_languages WHERE lang_code = 'en'\"}]",
+        "vgi.keywords": "[\"supported languages\", \"languages\", \"iso-639\", \"spacy models\", \"language support\", \"capabilities\", \"discovery\", \"which languages\"]",
+        "vgi.title": "Supported Languages Table"
+      },
+      false,
+      false,
+      true,
+      0,
+      2,
+      1,
+      0,
+      "CREATE TABLE supported_languages(lang_code VARCHAR, spacy_model VARCHAR NOT NULL, PRIMARY KEY(lang_code));"
+    ]
+  ]
+}

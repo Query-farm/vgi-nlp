@@ -1,0 +1,226 @@
+{
+  "schema_version": 1,
+  "repository": "Query-farm/vgi-nlp",
+  "revision": "638dd3037d0757df64fa4cb6795084c57c3780a4",
+  "captured_at": "2026-11-15T01:08:52.067729+00:00",
+  "default_schema": "main",
+  "scope": "all_public_functions_and_tables",
+  "complete": true,
+  "evidence": [
+    {
+      "path": "coverage/arguments.json",
+      "sha256": "f4ad2a57d1e04e5b12377f7ec78c65ad20d2a26f59c0afc373f23f1aad455f4f",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/catalog-metadata.json",
+      "sha256": "8a78f86264f937bf29128eafce248e137726b80c3a370994b56588dcacb13634",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/copy-formats.json",
+      "sha256": "787612571d95f65073a0eaef766bc72bdbb2952a412f412a05d37d74a88fc51f",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/entities-columns.json",
+      "sha256": "e237b64e81a69c4f80ad5701ed65005bf9f24a59de0b37113130f0ec3be6c070",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/functions.json",
+      "sha256": "86d39bd4263d513429ac00b7c7bdb898b4e926bcc6f8462567c17c08ebd23ce4",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/noun_chunks-columns.json",
+      "sha256": "96a7177bdbb83dcf052185e2259e32ce445bbc5cd061e96b6991ab583a1eae4f",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/resolved-worker-packages.json",
+      "sha256": "ab7291c16b9db4c256c0cfc49851ca9f38d56d58092044d97ccb4b729a9e5dc8",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/sentences-columns.json",
+      "sha256": "9a68dea27bb70bf70274c5ff3d61c9cf6756df1a6e16d72049e28fe5d4accb93",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/source-compatibility.json",
+      "sha256": "3dfdc808549d60ddd6836e7ec97b143b58123a82091ad0eb12e62889476e4d8a",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/source-diff.patch",
+      "sha256": "a138369e819ee8d8bfe14b16e97693f41650842fff976e220e4807b9c9957a68",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/supported_languages-columns.json",
+      "sha256": "23c5bfec99d4a6c02a8402f42259fdd4c7b2c2caf75378da0ec4d4547c9e4595",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/supported_languages.json",
+      "sha256": "5677f3ce2f47d4a42c5b48e2b954486ef515fa33038cbded785acc374f2e2013",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/tables.json",
+      "sha256": "85dcf48b0780bf0ea4f542bbae37918fc40796f5362c485c1bf50a499bb8be1c",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/tokens-columns.json",
+      "sha256": "07a38fe8f852e0d31e76f45bd7f3a2ef29abbbe78659f930c67a2993c87cc7ea",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    },
+    {
+      "path": "coverage/views.json",
+      "sha256": "1f0b024cea5b536da8e8af2e9c52f900bb0bf28aa0eee4dda1a3db2a8f129fd5",
+      "description": "Actual full runtime exports, overload arguments, table-in-out bound schema, reviewed source diff and resolved model/runtime provenance."
+    }
+  ],
+  "objects": [
+    {
+      "schema": "main",
+      "name": "detect_lang",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "detect_lang(text VARCHAR) -> VARCHAR"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "detect_lang_conf",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "detect_lang_conf(text VARCHAR) -> FLOAT"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "entities",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "entities(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, ent_text VARCHAR, label VARCHAR, start_char INTEGER, end_char INTEGER) [bound example: INTEGER id passthrough]"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "lemmatize",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "lemmatize(text VARCHAR) -> VARCHAR",
+        "lemmatize(text VARCHAR, lang VARCHAR) -> VARCHAR",
+        "lemmatize(text VARCHAR, lang VARCHAR, model VARCHAR) -> VARCHAR"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "normalize",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "normalize(text VARCHAR) -> VARCHAR"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "noun_chunks",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "noun_chunks(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, chunk VARCHAR, root VARCHAR) [bound example: INTEGER id passthrough]"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "sentences",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "sentences(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, sent_index INTEGER, sentence VARCHAR) [bound example: INTEGER id passthrough]"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "sentiment",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "sentiment(text VARCHAR) -> FLOAT"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "sentiment_label",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "sentiment_label(text VARCHAR) -> VARCHAR"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "strip_stopwords",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "strip_stopwords(text VARCHAR) -> VARCHAR",
+        "strip_stopwords(text VARCHAR, lang VARCHAR) -> VARCHAR",
+        "strip_stopwords(text VARCHAR, lang VARCHAR, model VARCHAR) -> VARCHAR"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "supported_languages",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "supported_languages() -> TABLE(lang_code VARCHAR, spacy_model VARCHAR)"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "tokens",
+      "kind": "function",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "tokens(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, token VARCHAR, lemma VARCHAR, pos VARCHAR, tag VARCHAR, is_stop BOOLEAN, dep VARCHAR) [bound example: INTEGER id passthrough]"
+      ]
+    },
+    {
+      "schema": "main",
+      "name": "supported_languages",
+      "kind": "table",
+      "authentication": "none",
+      "access": "read",
+      "signatures": [
+        "TABLE(lang_code VARCHAR, spacy_model VARCHAR)"
+      ],
+      "alias_of_same_named_function": true
+    }
+  ],
+  "launch": "uvx --python 3.13 --from git+https://github.com/Query-farm/vgi-nlp@v0.4.0 vgi-nlp-worker",
+  "runtime": "Haybarn2.0.0rc11",
+  "review_notes": "Twelve logical names from16function rows plus supported_languages same-name physical table alias. No views/COPY/authenticated/write objects. All twelve retained in denominator. Eight English-focused narrative surfaces demonstrated; detect_lang, detect_lang_conf, lemmatize and noun_chunks remain uncovered. The24-language registry maps default models, not installed-model inventory. Only release-declared en_core_web_sm3.8.0 and VADER run. Optional fastText downloads disabled and language pinned; no language-ID inference claimed. Current source adds composed SQL examples and related agent/example metadata only. Complete package diff retained/reviewed; compute methods, registrations, schemas, pipeline behavior, entrypoint and root dependencies unchanged. Actual released interface supports current-compatible mapping, not an exact-current execution claim. Table-in-out DESCRIBE exports bind INTEGER id passthrough plus actual emitted fields. Actual passthrough type depends on input schema; id omitted when not requested. Full argument exports retain defaults and input-table metadata."
+}

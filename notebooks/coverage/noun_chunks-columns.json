@@ -1,0 +1,38 @@
+{
+  "query": "DESCRIBE SELECT * FROM nlp.main.noun_chunks((SELECT 1 AS id,'Apple Inc. hired a person in Paris.' AS body),id:='id',text:='body',lang:='en',model:='en_core_web_sm')",
+  "captured_at": "2026-11-15T01:08:52.109621+00:00",
+  "columns": [
+    "column_name",
+    "column_type",
+    "null",
+    "key",
+    "default",
+    "extra"
+  ],
+  "rows": [
+    [
+      "id",
+      "INTEGER",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "chunk",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "root",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ]
+  ]
+}

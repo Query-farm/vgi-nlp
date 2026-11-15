@@ -1,0 +1,46 @@
+{
+  "query": "SELECT * FROM duckdb_databases() WHERE database_name='nlp'",
+  "captured_at": "2026-11-15T01:08:52.076870+00:00",
+  "columns": [
+    "database_name",
+    "database_oid",
+    "path",
+    "comment",
+    "tags",
+    "internal",
+    "type",
+    "readonly",
+    "encrypted",
+    "cipher",
+    "options"
+  ],
+  "rows": [
+    [
+      "nlp",
+      22595,
+      null,
+      "Classical NLP (spaCy + fastText + VADER): language ID, sentiment, NER, tokenization for SQL.",
+      {
+        "vgi.agent_test_tasks": "[{\"name\": \"detect-language-code\", \"prompt\": \"Identify the language of the text 'Bonjour tout le monde, comment allez-vous aujourd''hui?' and return its two-letter ISO-639 language code in a column named lang.\"}, {\"name\": \"confident-english\", \"prompt\": \"Decide whether the language detector is highly confident (more than 90%) that the text 'The quick brown fox jumps over the lazy dog' is English. Return a single boolean column named confident_english that is true only when the detected ISO-639 code is 'en' and the detection confidence exceeds 0.9.\"}, {\"name\": \"sentiment-is-positive\", \"prompt\": \"Decide whether the sentence 'I absolutely love this product, it works wonderfully!' expresses positive sentiment. Using the compound sentiment score, return a single boolean column named is_positive that is true when the score is above the standard positive threshold of 0.05.\"}, {\"name\": \"sentiment-label\", \"prompt\": \"Classify the sentiment of the sentence 'This is the worst experience I have ever had' into a coarse label of negative, neutral, or positive, and return the label in a column named mood.\"}, {\"name\": \"normalize-text\", \"prompt\": \"Produce a canonical, comparable form of the string '  Cafe   DELUXE  ' by applying Unicode normalization, lowercasing, and collapsing runs of whitespace. Return it in a column named canonical.\"}, {\"name\": \"lemmatize-contains-base-form\", \"prompt\": \"Lemmatize the English sentence 'The cats were running quickly', reducing each word to its dictionary base form. Decide whether the lemmatized result contains the base form 'run'. Return a single boolean column named has_run. Treat the text as English.\"}, {\"name\": \"strip-stopwords-keeps-content\", \"prompt\": \"Remove English stop-words and punctuation from the sentence 'this is a really great movie'. Decide whether the content word 'great' survives the stop-word removal. Return a single boolean column named keeps_great. Treat the text as English.\"}, {\"name\": \"has-named-entities\", \"prompt\": \"Decide whether the sentence 'Apple was founded by Steve Jobs in California.' contains at least two named entities. Treat the text as English. Return a single boolean column named has_entities.\"}, {\"name\": \"tokenizes-into-words\", \"prompt\": \"Tokenize the English sentence 'The quick brown fox jumps.' into individual tokens with part-of-speech tags. Decide whether it yields more than three tokens. Treat the text as English. Return a single boolean column named many_tokens.\"}, {\"name\": \"counts-two-sentences\", \"prompt\": \"Split the text 'First sentence here. Second one follows.' into sentences and decide whether it contains exactly two sentences. Treat the text as English. Return a single boolean column named two_sentences.\"}, {\"name\": \"has-noun-chunks\", \"prompt\": \"Extract the base noun phrases (noun chunks) from the English sentence 'The big red car drove down the long road.' and decide whether it yields at least two noun chunks. Treat the text as English. Return a single boolean column named has_chunks.\"}, {\"name\": \"english-pipeline-supported\", \"prompt\": \"Determine whether this worker has a default spaCy pipeline for English (ISO-639 code 'en'), i.e. whether English text can be lemmatized and run through NER without naming a custom model. Return a single boolean column named supported.\"}]",
+        "vgi.author": "Query.Farm",
+        "vgi.copyright": "Copyright 2026 Query Farm LLC - https://query.farm",
+        "vgi.doc_llm": "Classical, non-LLM natural-language processing over text columns: detect each row's language and confidence (fastText lid.176), score sentiment in [-1, 1] and label it neg/neu/pos (VADER), lemmatize, strip stop-words, and Unicode-normalize text (spaCy), plus table-valued functions that explode a text column into named entities, tokens with POS tags, sentences, and noun chunks. Use it for bulk, cheap, per-row text enrichment in SQL -- upstream of, not a wrapper around, LLM workers.",
+        "vgi.doc_md": "# Classical NLP for DuckDB SQL\n\n![spaCy logo](https://upload.wikimedia.org/wikipedia/commons/8/88/SpaCy_logo.svg)\n\nRun **classical natural language processing in SQL** -- language detection, sentiment analysis, named entity recognition (NER), lemmatization, and tokenization -- directly over your text columns in DuckDB, with no LLM and no API key required. This worker turns the proven open-source NLP stack of [spaCy](https://spacy.io), [fastText](https://fasttext.cc/), and [VADER](https://github.com/cjhutto/vaderSentiment) into fast, deterministic SQL functions for bulk, cheap, per-row text enrichment.\n\n## Who it is for\n\nData engineers and analysts who want to enrich large text tables -- product reviews, support tickets, articles, social posts -- without leaving SQL or paying per token. Because the underlying models are rule- and statistics-based rather than generative, output is reproducible and runs at column scale -- ideal *upstream* of, not as a replacement for, LLM workers.\n\n## Key concepts\n\n- **Models load once per worker process and are cached**, so the one-time model-load cost is amortized across every row of every query.\n- **Language identification** uses Facebook's [fastText lid.176](https://fasttext.cc/docs/en/language-identification.html) model (176 languages). When you do not pin a language, each row is routed to the matching language pipeline automatically.\n- **Sentiment** uses the lexicon-and-rule-based VADER scorer, tuned for English and social media text; it understands negation, intensifiers, and emoji.\n- **Linguistic analysis** -- structured span extraction, part-of-speech tagging, sentence boundaries, noun-phrase mining, lemmatization, and Unicode normalization -- uses spaCy's small English pipeline (`en_core_web_sm`) by default; pin a language or name a specific model to override it.\n\n## When to reach for it\n\nUse it whenever you need to enrich or filter free text at scale in SQL: detect and segment multilingual corpora, score or bucket opinion, clean and canonicalize text so free-text keys join and group reliably, or split documents into structured rows you can aggregate and join back to their source. Attach the worker, then call the functions directly from SQL -- `nlp.main.detect_lang(body)`, `nlp.main.sentiment(body)`, or `nlp.main.entities((SELECT id, body FROM docs), id := 'id')`:\n\n```sql\nINSTALL vgi FROM community;\nLOAD vgi;\nATTACH 'nlp' (TYPE vgi, LOCATION 'uv run nlp_worker.py');\n```\n\nPowered by spaCy ([source](https://github.com/explosion/spaCy) - [docs](https://spacy.io/usage)), fastText ([source](https://github.com/facebookresearch/fastText) - [docs](https://fasttext.cc/docs/en/language-identification.html)), and VADER ([source & docs](https://github.com/cjhutto/vaderSentiment)). Source for this worker: [Query-farm/vgi-nlp](https://github.com/Query-farm/vgi-nlp).",
+        "vgi.keywords": "[\"nlp\", \"natural language processing\", \"language detection\", \"sentiment analysis\", \"named entity recognition\", \"ner\", \"tokenization\", \"lemmatize\", \"stop words\", \"noun chunks\", \"spacy\", \"fasttext\", \"vader\", \"text enrichment\"]",
+        "vgi.license": "LicenseRef-QueryFarm-Source-Available-1.0",
+        "vgi.subtitle": "Detect language, score sentiment, extract entities and tokenize text from queries.",
+        "vgi.support_contact": "https://github.com/Query-farm/vgi-nlp/issues",
+        "vgi.support_policy_url": "https://github.com/Query-farm/vgi-nlp/blob/main/README.md",
+        "vgi.title": "Classical NLP"
+      },
+      false,
+      "vgi",
+      false,
+      false,
+      null,
+      {
+        "location": "uvx --python 3.13 --from git+https://github.com/Query-farm/vgi-nlp@v0.4.0 vgi-nlp-worker"
+      }
+    ]
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "query": "SELECT nlp.main.normalize('This is NOT good!') AS normalized,nlp.main.strip_stopwords('This is NOT good!','en','en_core_web_sm') AS stripped,nlp.main.sentiment('This is NOT good!') AS score",
+  "captured_at": "2026-11-15T01:08:52.106188+00:00",
+  "columns": [
+    "normalized",
+    "stripped",
+    "score"
+  ],
+  "rows": [
+    [
+      "this is not good!",
+      "good",
+      -0.40149998664855957
+    ]
+  ]
+}

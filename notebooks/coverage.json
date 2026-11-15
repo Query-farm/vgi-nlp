@@ -1,0 +1,363 @@
+{
+  "schema_version": 1,
+  "catalogs": {
+    "released": {
+      "path": "coverage/catalog-released.json",
+      "sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+        "notes": "Complete actual release catalog12logical names from16function rows plus one same-name physical table alias. No views/COPY/auth/write. Full overload arguments and bound INTEGER-id table-in-out schemas retained. Current adds composed SQL examples/agent metadata only; compute, registry, schema, pipeline and root dependencies unchanged. Four uncovered names remain in denominator. Only English spaCy and VADER executed; language routing metadata is not installed-model evidence."
+      }
+    },
+    "current": {
+      "path": "coverage/catalog-current.json",
+      "sha256": "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe",
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "catalog_sha256": "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe",
+        "notes": "Complete actual release catalog12logical names from16function rows plus one same-name physical table alias. No views/COPY/auth/write. Full overload arguments and bound INTEGER-id table-in-out schemas retained. Current adds composed SQL examples/agent metadata only; compute, registry, schema, pipeline and root dependencies unchanged. Four uncovered names remain in denominator. Only English spaCy and VADER executed; language routing metadata is not installed-model evidence."
+      }
+    }
+  },
+  "notebooks": [
+    {
+      "path": "01_audit_cleaning_and_sentiment.ipynb",
+      "sha256": "0482c69bdc92e6fcb395af60f2d48a84878fc23e51fb8f226159e7053d9e2e7d",
+      "execution": {
+        "path": "coverage/run-01.json",
+        "sha256": "ce4ea6739e80c855a8171e47133c72ba2c4b2c4721e160a35c6edfd815d87046"
+      }
+    },
+    {
+      "path": "02_trace_extracted_spans_to_text.ipynb",
+      "sha256": "5ccd940d68c6bf6dd37c46ab3c751d2a40eddada1e9a6506fb738ea5f44c9eae",
+      "execution": {
+        "path": "coverage/run-02.json",
+        "sha256": "43b866b316aa7f0193b0eaa2805dc917552f3ca69005351338532d068582ce92"
+      }
+    }
+  ],
+  "examples": [
+    {
+      "object": {
+        "schema": "main",
+        "name": "supported_languages"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "sql": [
+        {
+          "cell": "connection",
+          "reference": "nlp.main.supported_languages"
+        }
+      ],
+      "narrative_cells": [
+        "attach-story"
+      ],
+      "result_cells": [
+        "language-finding"
+      ],
+      "interpretation_cells": [
+        "language-finding",
+        "attach-story"
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "notebook_sha256": "0482c69bdc92e6fcb395af60f2d48a84878fc23e51fb8f226159e7053d9e2e7d",
+        "catalog_sha256": [
+          "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+          "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe"
+        ],
+        "purpose": "Validate the explicitly selected English pipeline before corpus processing.",
+        "finding": "Complete24-row registry returns exactly one English mapping to en_core_web_sm, checked before model calls and used to gate transform CTAS. Other default mappings are not evidence of installed or tested models; language detection is disabled by scope, not omitted from denominator."
+      }
+    },
+    {
+      "object": {
+        "schema": "main",
+        "name": "normalize"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "sql": [
+        {
+          "cell": "inputs-query",
+          "reference": "nlp.main.normalize"
+        }
+      ],
+      "narrative_cells": [
+        "question",
+        "inputs-story"
+      ],
+      "result_cells": [
+        "inputs-query",
+        "transform-finding"
+      ],
+      "interpretation_cells": [
+        "transform-finding",
+        "experiment-story"
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "notebook_sha256": "0482c69bdc92e6fcb395af60f2d48a84878fc23e51fb8f226159e7053d9e2e7d",
+        "catalog_sha256": [
+          "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+          "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe"
+        ],
+        "purpose": "Keep a minimally normalized alternative visible alongside stopword removal and original text.",
+        "finding": "Actual normalization is materialized for all13inputs in the default, not left inside an untaken CASE. Returned normalized text preserves negators and punctuation while lowercasing/collapsing whitespace; original and alternate transform stay inspectable. Focused experiment selects this stored form for sentiment analysis."
+      }
+    },
+    {
+      "object": {
+        "schema": "main",
+        "name": "strip_stopwords"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "sql": [
+        {
+          "cell": "inputs-query",
+          "reference": "nlp.main.strip_stopwords"
+        }
+      ],
+      "narrative_cells": [
+        "question",
+        "inputs-story",
+        "tokens-story"
+      ],
+      "result_cells": [
+        "inputs-query",
+        "scores-chart",
+        "tokens-chart",
+        "summary-finding"
+      ],
+      "interpretation_cells": [
+        "transform-finding",
+        "summary-finding",
+        "tokens-story"
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "notebook_sha256": "0482c69bdc92e6fcb395af60f2d48a84878fc23e51fb8f226159e7053d9e2e7d",
+        "catalog_sha256": [
+          "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+          "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe"
+        ],
+        "purpose": "Audit how English stopword removal changes text before scoring.",
+        "finding": "Explicit released English pipeline removes words/punctuation from13authored probes; original, stripped and normalized bodies are retained. Listed negation tokens disappear under default, while unavailable scores remain separate. Multiple features change, so no isolated causal claim is made."
+      }
+    },
+    {
+      "object": {
+        "schema": "main",
+        "name": "sentiment"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "sql": [
+        {
+          "cell": "scores-query",
+          "reference": "nlp.main.sentiment"
+        }
+      ],
+      "narrative_cells": [
+        "scores-story",
+        "question",
+        "checks-story"
+      ],
+      "result_cells": [
+        "scores-query",
+        "scores-chart",
+        "summary-finding",
+        "checks-finding"
+      ],
+      "interpretation_cells": [
+        "summary-finding",
+        "scores-story",
+        "experiment-story"
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "notebook_sha256": "0482c69bdc92e6fcb395af60f2d48a84878fc23e51fb8f226159e7053d9e2e7d",
+        "catalog_sha256": [
+          "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+          "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe"
+        ],
+        "purpose": "Compare model score/label outputs before and after a selected text transformation.",
+        "finding": "Original and cleaned VADER scores and coarse labels are materialized together; null-aware thresholds at\u00b10.05 reconcile labels. Charts include only comparable pairs while full13-row audit preserves unavailable values. Label changes are model behavior, not human sentiment truth or accuracy."
+      }
+    },
+    {
+      "object": {
+        "schema": "main",
+        "name": "sentiment_label"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "sql": [
+        {
+          "cell": "scores-query",
+          "reference": "nlp.main.sentiment_label"
+        }
+      ],
+      "narrative_cells": [
+        "scores-story",
+        "question",
+        "checks-story"
+      ],
+      "result_cells": [
+        "scores-query",
+        "scores-chart",
+        "summary-finding",
+        "checks-finding"
+      ],
+      "interpretation_cells": [
+        "summary-finding",
+        "scores-story",
+        "experiment-story"
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "notebook_sha256": "0482c69bdc92e6fcb395af60f2d48a84878fc23e51fb8f226159e7053d9e2e7d",
+        "catalog_sha256": [
+          "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+          "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe"
+        ],
+        "purpose": "Compare model score/label outputs before and after a selected text transformation.",
+        "finding": "Original and cleaned VADER scores and coarse labels are materialized together; null-aware thresholds at\u00b10.05 reconcile labels. Charts include only comparable pairs while full13-row audit preserves unavailable values. Label changes are model behavior, not human sentiment truth or accuracy."
+      }
+    },
+    {
+      "object": {
+        "schema": "main",
+        "name": "tokens"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "sql": [
+        {
+          "cell": "tokens-query",
+          "reference": "nlp.main.tokens"
+        }
+      ],
+      "narrative_cells": [
+        "tokens-story",
+        "checks-story"
+      ],
+      "result_cells": [
+        "tokens-query",
+        "tokens-chart",
+        "checks-finding"
+      ],
+      "interpretation_cells": [
+        "tokens-story",
+        "experiment-story"
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "notebook_sha256": "0482c69bdc92e6fcb395af60f2d48a84878fc23e51fb8f226159e7053d9e2e7d",
+        "catalog_sha256": [
+          "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+          "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe"
+        ],
+        "purpose": "Inspect which token categories survive the chosen transform.",
+        "finding": "Both text variants use explicit English model and distinct variant IDs. SQL partitions emitted tokens into listed negators, punctuation, other stopwords and remaining tokens, retains zero categories and left-joins full roster. Reconciliation prevents row inflation; listed negators are not an exhaustive grammar."
+      }
+    },
+    {
+      "object": {
+        "schema": "main",
+        "name": "sentences"
+      },
+      "notebook": "02_trace_extracted_spans_to_text.ipynb",
+      "sql": [
+        {
+          "cell": "extract-query",
+          "reference": "nlp.main.sentences"
+        }
+      ],
+      "narrative_cells": [
+        "question",
+        "extract-story",
+        "counts-story"
+      ],
+      "result_cells": [
+        "sentences-finding",
+        "counts-chart",
+        "audit-finding",
+        "checks-finding"
+      ],
+      "interpretation_cells": [
+        "sentences-finding",
+        "audit-finding",
+        "experiment-story"
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "notebook_sha256": "5ccd940d68c6bf6dd37c46ab3c751d2a40eddada1e9a6506fb738ea5f44c9eae",
+        "catalog_sha256": [
+          "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+          "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe"
+        ],
+        "purpose": "Audit sentence-row expansion without losing documents with no output.",
+        "finding": "Same six-document roster produces separately materialized sentence rows with per-document zero-based indices. Counts are aggregated before joining entities; empty/NULL inputs stay zero-output rows. Returned sentence strings are trimmed, so narrative explicitly avoids claiming exact whitespace reconstruction."
+      }
+    },
+    {
+      "object": {
+        "schema": "main",
+        "name": "entities"
+      },
+      "notebook": "02_trace_extracted_spans_to_text.ipynb",
+      "sql": [
+        {
+          "cell": "extract-query",
+          "reference": "nlp.main.entities"
+        }
+      ],
+      "narrative_cells": [
+        "question",
+        "extract-story",
+        "characters-story"
+      ],
+      "result_cells": [
+        "extract-query",
+        "counts-chart",
+        "characters-chart",
+        "audit-finding",
+        "checks-finding"
+      ],
+      "interpretation_cells": [
+        "audit-finding",
+        "characters-story",
+        "experiment-story"
+      ],
+      "review": {
+        "status": "approved",
+        "reviewer": "Codex /root/notebooks_earthquakes",
+        "reviewed_at": "2026-11-15T01:22:45.358674+00:00",
+        "notebook_sha256": "5ccd940d68c6bf6dd37c46ab3c751d2a40eddada1e9a6506fb738ea5f44c9eae",
+        "catalog_sha256": [
+          "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+          "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe"
+        ],
+        "purpose": "Trace entity predictions to exact processed text and reconcile character annotation coverage.",
+        "finding": "Every actual entity reconstructs with substr(start_char+1,end_char-start_char); bound checks verify0-based half-open character offsets and nonoverlap before summing lengths. Accented text, empty/NULL rows and neutral output are explicit. Original\u2192normalized experiment changes processed coordinates and possibly predictions; no factual-label correctness or recognition-recall claim."
+      }
+    }
+  ]
+}

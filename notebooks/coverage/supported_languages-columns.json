@@ -1,0 +1,30 @@
+{
+  "query": "DESCRIBE SELECT * FROM nlp.main.supported_languages()",
+  "captured_at": "2026-11-15T01:08:52.079236+00:00",
+  "columns": [
+    "column_name",
+    "column_type",
+    "null",
+    "key",
+    "default",
+    "extra"
+  ],
+  "rows": [
+    [
+      "lang_code",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "spacy_model",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ]
+  ]
+}

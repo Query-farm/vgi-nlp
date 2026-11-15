@@ -1,0 +1,685 @@
+{
+  "query": "SELECT * FROM duckdb_functions() WHERE database_name='nlp' ORDER BY schema_name,function_name",
+  "captured_at": "2026-11-15T01:08:52.067729+00:00",
+  "columns": [
+    "database_name",
+    "database_oid",
+    "schema_name",
+    "function_name",
+    "alias_of",
+    "function_type",
+    "description",
+    "comment",
+    "tags",
+    "return_type",
+    "parameters",
+    "parameter_types",
+    "varargs",
+    "macro_definition",
+    "has_side_effects",
+    "internal",
+    "extension_name",
+    "function_oid",
+    "examples",
+    "stability",
+    "categories"
+  ],
+  "rows": [
+    [
+      "nlp",
+      "22595",
+      "main",
+      "detect_lang",
+      null,
+      "scalar",
+      "Detect the dominant language of each text (ISO-639 code, fastText lid.176)",
+      null,
+      {
+        "vgi.category": "language-id",
+        "vgi.doc_llm": "Identify the dominant natural language of each input string and return its two-letter ISO-639-1 code (`en`, `fr`, `de`, `es`, ...), using the fastText `lid.176` model.\n\n**When to use:** routing mixed-language corpora, filtering a table down to one language before applying English-only models (e.g. VADER sentiment), or building a language histogram with `GROUP BY`.\n\n**Input:** one `VARCHAR` column. **Output:** a `VARCHAR` ISO-639 code. NULL or empty input yields NULL. Very short or ambiguous strings can be misclassified -- pair with `detect_lang_conf` and threshold on confidence when accuracy matters.",
+        "vgi.doc_md": "# detect_lang\n\nReturns the ISO-639-1 language code of each text value, computed with the fastText `lid.176` identifier -- for example `fr` for `Bonjour le monde` and `en` for a plain English sentence.\n\nUse it to segment a multilingual column before language-specific processing. Combine with `nlp.detect_lang_conf` to discard low-confidence guesses; very short snippets are inherently hard to classify.",
+        "vgi.example_queries": "[{\"description\": \"Identify the language of a literal string\", \"sql\": \"SELECT nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') AS lang\"}]",
+        "vgi.keywords": "[\"detect language\", \"language identification\", \"language detection\", \"langid\", \"lid\", \"iso-639\", \"locale\", \"fasttext\", \"what language\"]",
+        "vgi.title": "Detect Language Code"
+      },
+      "VARCHAR",
+      [
+        "text"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22599,
+      [
+        "SELECT nlp.main.detect_lang('The quick brown fox jumps over the lazy dog') AS lang"
+      ],
+      "CONSISTENT",
+      [
+        "language-id"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "detect_lang_conf",
+      null,
+      "scalar",
+      "Confidence (0-1) of the detected language (fastText lid.176)",
+      null,
+      {
+        "vgi.category": "language-id",
+        "vgi.doc_llm": "Return the fastText `lid.176` confidence (roughly 0-1) for the **top** language guess of each input string -- the companion probability to `detect_lang`.\n\n**When to use:** gate downstream processing on identification quality, e.g. keep only rows the model is sure about with `WHERE nlp.detect_lang_conf(body) > 0.8`.\n\n**Input:** one `VARCHAR` column. **Output:** a `FLOAT`. NULL/empty input yields NULL. Edge case: fastText occasionally reports a confidence marginally above 1.0 (e.g. ~1.00001), so do not assert a strict `<= 1.0` upper bound on the result.",
+        "vgi.doc_md": "# detect_lang_conf\n\nReturns how confident the fastText `lid.176` model is in the language it picked for each text -- a float near the `[0, 1]` range. A common pattern is to keep only confidently-identified rows by filtering on `nlp.detect_lang_conf(body) > 0.8`.\n\nUse alongside `nlp.detect_lang`. Note the confidence can read slightly above 1.0 for some inputs, so avoid a strict upper-bound assertion.",
+        "vgi.example_queries": "[{\"description\": \"Confidence of the top language guess for a literal string\", \"sql\": \"SELECT nlp.main.detect_lang_conf('The quick brown fox') AS conf\"}]",
+        "vgi.keywords": "[\"language confidence\", \"langid confidence\", \"detection probability\", \"language score\", \"fasttext confidence\", \"certainty\", \"threshold\"]",
+        "vgi.title": "Detect Language Confidence Score"
+      },
+      "FLOAT",
+      [
+        "text"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22600,
+      [
+        "SELECT nlp.main.detect_lang_conf('The quick brown fox') AS conf"
+      ],
+      "CONSISTENT",
+      [
+        "language-id"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "entities",
+      null,
+      "table",
+      "Named entities per text row: (id, ent_text, label, start_char, end_char)",
+      null,
+      {
+        "vgi.category": "extraction",
+        "vgi.doc_llm": "Named-entity recognition as a table-in-out function: each input text row explodes into **one row per detected entity** (people, organizations, places, dates, money, ...) found by the spaCy NER pipeline.\n\n**When to use:** pull structured mentions out of unstructured text -- e.g. every company named across a news corpus, or every date in a contract -- so you can aggregate, filter, or join on them.\n\n**Input:** a `(SELECT ...)` relation passed positionally; `id := 'col'` names a passthrough key copied onto every emitted row (so you can join entities back to the source); `text :=`, `lang :=`, and `model :=` select the text column, pin the language, and override the model. **Output:** rows of `(ent_text, label, start_char, end_char)` plus the optional id. Text rows with no entities emit nothing; output order is not guaranteed -- add `ORDER BY` for determinism.",
+        "vgi.doc_md": "# entities\n\nRuns spaCy named-entity recognition over a text column, emitting one row per entity span. Pass the input relation positionally and name the join key with `id :=` so every emitted entity carries the source row's id; `text :=`, `lang :=`, and `model :=` choose the text column, pin the language, and override the model.\n\nEach output row carries the entity text, its type label (`PERSON`, `ORG`, `GPE`, `DATE`, `MONEY`, ...), and the character span within the source. Rows with no entities produce no output; add an `ORDER BY` for deterministic order.",
+        "vgi.example_queries": "[{\"description\": \"Explode a literal English document into entities, projecting its key columns\", \"sql\": \"SELECT ent_text, label FROM nlp.main.entities((SELECT 'Apple was founded by Steve Jobs in California.' AS body), lang := 'en')\"}]",
+        "vgi.executable_examples": "[{\"description\": \"Extract named entities from a literal document, keyed back to its id.\", \"sql\": \"SELECT id, ent_text, label FROM nlp.main.entities((SELECT 1 AS id, 'Apple was founded by Steve Jobs in California.' AS body), id := 'id', lang := 'en')\"}, {\"description\": \"Tokenize a literal document with part-of-speech tags, keyed back to its id.\", \"sql\": \"SELECT id, token, pos FROM nlp.main.tokens((SELECT 1 AS id, 'The quick brown fox jumps.' AS body), id := 'id', lang := 'en')\"}, {\"description\": \"Split a literal document into sentences, keyed back to its id.\", \"sql\": \"SELECT id, sent_index, sentence FROM nlp.main.sentences((SELECT 1 AS id, 'First sentence here. Second one follows.' AS body), id := 'id', lang := 'en')\"}, {\"description\": \"Extract noun chunks from a literal document, keyed back to its id.\", \"sql\": \"SELECT id, chunk, root FROM nlp.main.noun_chunks((SELECT 1 AS id, 'The big red car drove down the long road.' AS body), id := 'id', lang := 'en')\"}]",
+        "vgi.keywords": "[\"named entity recognition\", \"ner\", \"entities\", \"people organizations places\", \"person org gpe date money\", \"extract entities\", \"spacy\"]",
+        "vgi.result_columns_schema": "[{\"name\": \"ent_text\", \"type\": \"VARCHAR\", \"description\": \"The entity span text.\"}, {\"name\": \"label\", \"type\": \"VARCHAR\", \"description\": \"Entity type (`PERSON`, `ORG`, `GPE`, `DATE`, `MONEY`, ...).\"}, {\"name\": \"start_char\", \"type\": \"INTEGER\", \"description\": \"Start character offset within the source text.\"}, {\"name\": \"end_char\", \"type\": \"INTEGER\", \"description\": \"End character offset within the source text.\"}]",
+        "vgi.title": "Extract Named Entities"
+      },
+      null,
+      [
+        "data",
+        "text",
+        "model",
+        "lang",
+        "id"
+      ],
+      [
+        "TABLE",
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      null,
+      true,
+      null,
+      22606,
+      [
+        "SELECT ent_text, label FROM nlp.main.entities((SELECT 'Apple was founded by Steve Jobs in California.' AS body), lang := 'en')"
+      ],
+      null,
+      [
+        "ner"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "lemmatize",
+      null,
+      "scalar",
+      "Lemmatize each text (tokens replaced by their dictionary form); language auto-detected",
+      null,
+      {
+        "vgi.category": "text-cleaning",
+        "vgi.doc_llm": "Reduce every token to its lemma and return them space-joined, loading a **named** spaCy model rather than the default for the language.\n\n**When to use:** when you need a particular model -- e.g. a larger/transformer model (`en_core_web_trf`) for higher accuracy, or a non-default model already installed in the worker environment.\n\n**Inputs:** a `VARCHAR` text column, an ISO-639 `lang` (`''` ignores it when a model is given), and a `model` name. **Output:** a `VARCHAR` of space-joined lemmas. NULL/empty text yields NULL. The named model must be installed in the worker's environment, or the call errors at load time.",
+        "vgi.doc_md": "# lemmatize(text, lang, model)\n\nLemmatizes each text using an explicitly named spaCy model, giving full control over accuracy/speed trade-offs -- for instance naming `en_core_web_sm` for English or a larger `en_core_web_trf` transformer model.\n\nThe model must be present in the worker's Python environment. When the `lang` argument is empty the model name alone selects the pipeline.",
+        "vgi.example_queries": "[{\"description\": \"Lemmatize a literal string with per-row language auto-detect\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly') AS lemmas\"}, {\"description\": \"Lemmatize a literal string with the language pinned to English\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly', 'en') AS lemmas\"}, {\"description\": \"Lemmatize a literal string with an explicit spaCy model\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly', 'en', 'en_core_web_sm') AS lemmas\"}]",
+        "vgi.keywords": "[\"lemmatize model\", \"custom spacy model\", \"en_core_web_sm\", \"en_core_web_trf\", \"lemma\", \"explicit model\", \"text cleaning\", \"pipeline\"]",
+        "vgi.title": "Lemmatize Text (Explicit Model)"
+      },
+      "VARCHAR",
+      [
+        "text"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22601,
+      [
+        "SELECT nlp.main.lemmatize('The cats were running quickly') AS lemmas"
+      ],
+      "CONSISTENT",
+      [
+        "cleaning"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "lemmatize",
+      null,
+      "scalar",
+      "Lemmatize each text with the pipeline language pinned (ISO-639 code)",
+      null,
+      {
+        "vgi.category": "text-cleaning",
+        "vgi.doc_llm": "Reduce every token to its lemma and return them space-joined, loading a **named** spaCy model rather than the default for the language.\n\n**When to use:** when you need a particular model -- e.g. a larger/transformer model (`en_core_web_trf`) for higher accuracy, or a non-default model already installed in the worker environment.\n\n**Inputs:** a `VARCHAR` text column, an ISO-639 `lang` (`''` ignores it when a model is given), and a `model` name. **Output:** a `VARCHAR` of space-joined lemmas. NULL/empty text yields NULL. The named model must be installed in the worker's environment, or the call errors at load time.",
+        "vgi.doc_md": "# lemmatize(text, lang, model)\n\nLemmatizes each text using an explicitly named spaCy model, giving full control over accuracy/speed trade-offs -- for instance naming `en_core_web_sm` for English or a larger `en_core_web_trf` transformer model.\n\nThe model must be present in the worker's Python environment. When the `lang` argument is empty the model name alone selects the pipeline.",
+        "vgi.example_queries": "[{\"description\": \"Lemmatize a literal string with per-row language auto-detect\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly') AS lemmas\"}, {\"description\": \"Lemmatize a literal string with the language pinned to English\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly', 'en') AS lemmas\"}, {\"description\": \"Lemmatize a literal string with an explicit spaCy model\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly', 'en', 'en_core_web_sm') AS lemmas\"}]",
+        "vgi.keywords": "[\"lemmatize model\", \"custom spacy model\", \"en_core_web_sm\", \"en_core_web_trf\", \"lemma\", \"explicit model\", \"text cleaning\", \"pipeline\"]",
+        "vgi.title": "Lemmatize Text (Explicit Model)"
+      },
+      "VARCHAR",
+      [
+        "text",
+        "lang"
+      ],
+      [
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22601,
+      [
+        "SELECT nlp.main.lemmatize('The cats were running quickly', 'en') AS lemmas"
+      ],
+      "CONSISTENT",
+      [
+        "cleaning"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "lemmatize",
+      null,
+      "scalar",
+      "Lemmatize each text with an explicit spaCy model (e.g. en_core_web_sm)",
+      null,
+      {
+        "vgi.category": "text-cleaning",
+        "vgi.doc_llm": "Reduce every token to its lemma and return them space-joined, loading a **named** spaCy model rather than the default for the language.\n\n**When to use:** when you need a particular model -- e.g. a larger/transformer model (`en_core_web_trf`) for higher accuracy, or a non-default model already installed in the worker environment.\n\n**Inputs:** a `VARCHAR` text column, an ISO-639 `lang` (`''` ignores it when a model is given), and a `model` name. **Output:** a `VARCHAR` of space-joined lemmas. NULL/empty text yields NULL. The named model must be installed in the worker's environment, or the call errors at load time.",
+        "vgi.doc_md": "# lemmatize(text, lang, model)\n\nLemmatizes each text using an explicitly named spaCy model, giving full control over accuracy/speed trade-offs -- for instance naming `en_core_web_sm` for English or a larger `en_core_web_trf` transformer model.\n\nThe model must be present in the worker's Python environment. When the `lang` argument is empty the model name alone selects the pipeline.",
+        "vgi.example_queries": "[{\"description\": \"Lemmatize a literal string with per-row language auto-detect\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly') AS lemmas\"}, {\"description\": \"Lemmatize a literal string with the language pinned to English\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly', 'en') AS lemmas\"}, {\"description\": \"Lemmatize a literal string with an explicit spaCy model\", \"sql\": \"SELECT nlp.main.lemmatize('The cats were running quickly', 'en', 'en_core_web_sm') AS lemmas\"}]",
+        "vgi.keywords": "[\"lemmatize model\", \"custom spacy model\", \"en_core_web_sm\", \"en_core_web_trf\", \"lemma\", \"explicit model\", \"text cleaning\", \"pipeline\"]",
+        "vgi.title": "Lemmatize Text (Explicit Model)"
+      },
+      "VARCHAR",
+      [
+        "text",
+        "lang",
+        "model"
+      ],
+      [
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22601,
+      [
+        "SELECT nlp.main.lemmatize('The cats were running quickly', 'en', 'en_core_web_sm') AS lemmas"
+      ],
+      "CONSISTENT",
+      [
+        "cleaning"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "normalize",
+      null,
+      "scalar",
+      "Normalize text: Unicode NFKC, lowercase, and collapse whitespace",
+      null,
+      {
+        "vgi.category": "text-cleaning",
+        "vgi.doc_llm": "Canonicalize each text into a comparable form: apply Unicode **NFKC** normalization, casefold (aggressive lowercase), and collapse all runs of whitespace to single spaces (trimming the ends).\n\n**When to use:** before equality joins, deduplication, or grouping on free-text keys so that visually-identical strings differing only in case, full/half-width forms, ligatures, or spacing compare equal.\n\n**Input:** one `VARCHAR` column. **Output:** a normalized `VARCHAR`. NULL input yields NULL. This function is **pure Python** -- no spaCy/fastText model is loaded -- so it is the cheapest function in the worker and always available.",
+        "vgi.doc_md": "# normalize\n\nReturns a canonical form of each text: Unicode NFKC + casefold + whitespace collapse -- e.g. `  Cafe   DELUXE  ` becomes `cafe deluxe`.\n\nUse it to make free-text keys join and group reliably. Unlike the other cleaners this needs no model, so it runs everywhere with no setup.",
+        "vgi.example_queries": "[{\"description\": \"Canonicalize a messy literal string for dedup / matching\", \"sql\": \"SELECT nlp.main.normalize('  Caf\\u00e9   DELUXE\\t\\u2014  ') AS canonical\"}]",
+        "vgi.keywords": "[\"normalize\", \"canonicalize\", \"unicode nfkc\", \"casefold\", \"lowercase\", \"collapse whitespace\", \"dedup\", \"matching\", \"text cleaning\"]",
+        "vgi.title": "Normalize Text Form"
+      },
+      "VARCHAR",
+      [
+        "text"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22602,
+      [
+        "SELECT nlp.main.normalize('  Caf\u00e9   DELUXE\t\u2014  ') AS canonical"
+      ],
+      "CONSISTENT",
+      [
+        "cleaning"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "noun_chunks",
+      null,
+      "table",
+      "Noun chunks per text row: (id, chunk, root) -- keyword/topic candidates",
+      null,
+      {
+        "vgi.category": "extraction",
+        "vgi.doc_llm": "Noun-phrase extraction as a table-in-out function: each input text row explodes into **one row per noun chunk** (a base noun phrase such as 'the long road'), each with its head/root token.\n\n**When to use:** mine candidate keywords, topics, or product/feature mentions from free text without training a model -- noun chunks are a cheap, high-recall source of 'what this text is about'.\n\n**Input:** a `(SELECT ...)` relation passed positionally; `id := 'col'` names a passthrough key; `text :=`, `lang :=`, `model :=` pick the text column, pin the language, and override the model. **Output:** rows of `(chunk, root)` plus the optional id. Text rows with no noun chunks emit nothing; output order is not guaranteed -- add `ORDER BY` for determinism.",
+        "vgi.doc_md": "# noun_chunks\n\nExtracts base noun phrases from a text column with spaCy, emitting one row per chunk. Pass the input relation positionally; `id :=` names the join key copied onto every chunk row, and `text :=`, `lang :=`, `model :=` pick the text column, pin the language, and override the model.\n\nEach row gives the noun-phrase text and its head token (`root`). Aggregate the chunks to surface frequent topics/keywords, or join back to the source via `id :=`.",
+        "vgi.example_queries": "[{\"description\": \"Explode a literal English document into noun_chunks, projecting its key columns\", \"sql\": \"SELECT chunk, root FROM nlp.main.noun_chunks((SELECT 'The big red car drove down the long road.' AS body), lang := 'en')\"}]",
+        "vgi.keywords": "[\"noun chunks\", \"noun phrases\", \"keyword extraction\", \"topic candidates\", \"key phrases\", \"phrase extraction\", \"np chunking\", \"spacy\"]",
+        "vgi.result_columns_schema": "[{\"name\": \"chunk\", \"type\": \"VARCHAR\", \"description\": \"The noun-phrase text.\"}, {\"name\": \"root\", \"type\": \"VARCHAR\", \"description\": \"The head/root token of the noun phrase.\"}]",
+        "vgi.title": "Extract Noun Chunks"
+      },
+      null,
+      [
+        "data",
+        "text",
+        "model",
+        "lang",
+        "id"
+      ],
+      [
+        "TABLE",
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      null,
+      true,
+      null,
+      22607,
+      [
+        "SELECT chunk, root FROM nlp.main.noun_chunks((SELECT 'The big red car drove down the long road.' AS body), lang := 'en')"
+      ],
+      null,
+      [
+        "keywords"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "sentences",
+      null,
+      "table",
+      "Sentences per text row: (id, sent_index, sentence) -- chunking for embeddings",
+      null,
+      {
+        "vgi.category": "extraction",
+        "vgi.doc_llm": "Sentence segmentation as a table-in-out function: each input text row explodes into **one row per sentence**, in document order, with a 0-based index.\n\n**When to use:** chunk long documents into sentence-sized units before embedding/retrieval, sentence-level sentiment, or any per-sentence analysis.\n\n**Input:** a `(SELECT ...)` relation passed positionally; `id := 'col'` names a passthrough key copied onto every sentence row; `text :=`, `lang :=`, `model :=` pick the text column, pin the language, and override the model. **Output:** rows of `(sent_index, sentence)` plus the optional id. The `sent_index` preserves order; output row order across documents is otherwise not guaranteed -- add `ORDER BY id, sent_index` for determinism.",
+        "vgi.doc_md": "# sentences\n\nSplits a text column into sentences with spaCy, emitting one indexed row per sentence. Pass the input relation positionally; `id :=` names the join key copied onto every sentence row, and `text :=`, `lang :=`, `model :=` pick the text column, pin the language, and override the model.\n\nEach row carries the 0-based `sent_index` and the trimmed sentence text. This is the standard first step for sentence-level embeddings or retrieval chunking; use `id :=` to keep sentences tied to their source document, and order by `id, sent_index` for determinism.",
+        "vgi.example_queries": "[{\"description\": \"Explode a literal English document into sentences, projecting its key columns\", \"sql\": \"SELECT sent_index, sentence FROM nlp.main.sentences((SELECT 'First sentence here. Second one follows.' AS body), lang := 'en')\"}]",
+        "vgi.keywords": "[\"sentence segmentation\", \"sentence splitting\", \"sentences\", \"sentence tokenizer\", \"chunking\", \"sbd\", \"embeddings chunks\", \"spacy\"]",
+        "vgi.result_columns_schema": "[{\"name\": \"sent_index\", \"type\": \"INTEGER\", \"description\": \"0-based index of the sentence within the source text.\"}, {\"name\": \"sentence\", \"type\": \"VARCHAR\", \"description\": \"The sentence text.\"}]",
+        "vgi.title": "Split Into Sentences"
+      },
+      null,
+      [
+        "data",
+        "text",
+        "model",
+        "lang",
+        "id"
+      ],
+      [
+        "TABLE",
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      null,
+      true,
+      null,
+      22608,
+      [
+        "SELECT sent_index, sentence FROM nlp.main.sentences((SELECT 'First sentence here. Second one follows.' AS body), lang := 'en')"
+      ],
+      null,
+      [
+        "segmentation"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "sentiment",
+      null,
+      "scalar",
+      "Sentiment score in [-1, 1] (VADER lexicon; tuned for English/social text)",
+      null,
+      {
+        "vgi.category": "sentiment",
+        "vgi.doc_llm": "Score the sentiment of each text with VADER and return the **compound** value in `[-1, 1]`, where `-1` is maximally negative, `0` neutral, and `+1` maximally positive.\n\n**When to use:** rank or aggregate opinion in reviews, comments, tweets, and other short social/English text -- e.g. `avg(nlp.sentiment(body))` per product.\n\n**Input:** one `VARCHAR` column. **Output:** a `FLOAT` in `[-1, 1]`. NULL/empty input yields NULL. VADER is a lexicon-and-rules model tuned for English and social media; it understands emphasis, negation, and emoticons but is not a translator -- score non-English text only after detecting/translating it.",
+        "vgi.doc_md": "# sentiment\n\nReturns the VADER compound sentiment score in `[-1, 1]` for each text. A typical use is per-group opinion tracking -- e.g. the average `nlp.sentiment(body)` per product, so you can rank which products reviewers feel best about.\n\nVADER is purpose-built for English social text (handling negation, intensifiers, and emoji). For a coarse neg/neu/pos bucket instead of a number, use `nlp.sentiment_label`.",
+        "vgi.example_queries": "[{\"description\": \"Score the sentiment of a literal English string\", \"sql\": \"SELECT nlp.main.sentiment('I absolutely love this, it is fantastic!') AS score\"}]",
+        "vgi.keywords": "[\"sentiment\", \"sentiment analysis\", \"vader\", \"opinion\", \"polarity\", \"mood\", \"positive negative\", \"compound score\", \"reviews\"]",
+        "vgi.title": "Sentiment Compound Score"
+      },
+      "FLOAT",
+      [
+        "text"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22603,
+      [
+        "SELECT nlp.main.sentiment('I absolutely love this, it is fantastic!') AS score"
+      ],
+      "CONSISTENT",
+      [
+        "sentiment"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "sentiment_label",
+      null,
+      "scalar",
+      "Coarse sentiment label: neg / neu / pos (VADER thresholds)",
+      null,
+      {
+        "vgi.category": "sentiment",
+        "vgi.doc_llm": "Bucket each text into a coarse three-way sentiment **label** -- `neg`, `neu`, or `pos` -- by thresholding the VADER compound score.\n\n**When to use:** when you want a categorical opinion bucket for `GROUP BY` / filtering rather than a continuous number; cheaper to read in dashboards than the raw score.\n\n**Input:** one `VARCHAR` column. **Output:** a `VARCHAR` in `{neg, neu, pos}`. NULL/empty input yields NULL. Same English/social-text caveats as `sentiment`; if you need the underlying magnitude, call `nlp.sentiment` instead.",
+        "vgi.doc_md": "# sentiment_label\n\nReturns a coarse sentiment class -- `neg`, `neu`, or `pos` -- derived from the VADER compound score by thresholding at +/-0.05. A common use is to tally how many reviews fall into each `nlp.sentiment_label(body)` bucket for a dashboard.\n\nUse this when a label is more convenient than the numeric `nlp.sentiment` score, for example to tally how many reviews fall into each mood bucket.",
+        "vgi.example_queries": "[{\"description\": \"Bucket a literal string into neg / neu / pos\", \"sql\": \"SELECT nlp.main.sentiment_label('This is the worst experience ever') AS mood\"}]",
+        "vgi.keywords": "[\"sentiment label\", \"sentiment class\", \"positive negative neutral\", \"neg neu pos\", \"polarity bucket\", \"vader\", \"opinion category\"]",
+        "vgi.title": "Sentiment Polarity Label"
+      },
+      "VARCHAR",
+      [
+        "text"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22604,
+      [
+        "SELECT nlp.main.sentiment_label('This is the worst experience ever') AS mood"
+      ],
+      "CONSISTENT",
+      [
+        "sentiment"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "strip_stopwords",
+      null,
+      "scalar",
+      "Remove stop-words and punctuation, returning the rest joined; language auto-detected",
+      null,
+      {
+        "vgi.category": "text-cleaning",
+        "vgi.doc_llm": "Drop stop-words and punctuation and return the surviving tokens space-joined, loading a **named** spaCy model rather than the language default.\n\n**When to use:** when a particular model is required -- a larger/transformer model for better tokenization, or a non-default model already installed in the worker.\n\n**Inputs:** a `VARCHAR` text column, an ISO-639 `lang` (`''` ignores it when a model is given), and a `model` name. **Output:** a `VARCHAR` of the kept tokens. NULL/empty text yields NULL. The named model must be installed in the worker's environment or the call errors at load time.",
+        "vgi.doc_md": "# strip_stopwords(text, lang, model)\n\nRemoves stop-words and punctuation using an explicitly named spaCy model -- for instance `en_core_web_sm` for English, or a larger model already installed in the worker.\n\nThe model must be present in the worker's Python environment. When `lang` is empty the model name alone selects the pipeline.",
+        "vgi.example_queries": "[{\"description\": \"Drop stop-words from a literal string with per-row auto-detect\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie') AS kept\"}, {\"description\": \"Drop English stop-words from a literal string\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') AS kept\"}, {\"description\": \"Drop stop-words from a literal string with an explicit spaCy model\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie', 'en', 'en_core_web_sm') AS kept\"}]",
+        "vgi.keywords": "[\"stop words model\", \"custom spacy model\", \"remove stopwords\", \"en_core_web_sm\", \"explicit model\", \"content words\", \"text cleaning\"]",
+        "vgi.title": "Strip Stop-Words (Explicit Model)"
+      },
+      "VARCHAR",
+      [
+        "text"
+      ],
+      [
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22605,
+      [
+        "SELECT nlp.main.strip_stopwords('this is a really great movie') AS kept"
+      ],
+      "CONSISTENT",
+      [
+        "cleaning"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "strip_stopwords",
+      null,
+      "scalar",
+      "Remove stop-words and punctuation with the pipeline language pinned (ISO-639)",
+      null,
+      {
+        "vgi.category": "text-cleaning",
+        "vgi.doc_llm": "Drop stop-words and punctuation and return the surviving tokens space-joined, loading a **named** spaCy model rather than the language default.\n\n**When to use:** when a particular model is required -- a larger/transformer model for better tokenization, or a non-default model already installed in the worker.\n\n**Inputs:** a `VARCHAR` text column, an ISO-639 `lang` (`''` ignores it when a model is given), and a `model` name. **Output:** a `VARCHAR` of the kept tokens. NULL/empty text yields NULL. The named model must be installed in the worker's environment or the call errors at load time.",
+        "vgi.doc_md": "# strip_stopwords(text, lang, model)\n\nRemoves stop-words and punctuation using an explicitly named spaCy model -- for instance `en_core_web_sm` for English, or a larger model already installed in the worker.\n\nThe model must be present in the worker's Python environment. When `lang` is empty the model name alone selects the pipeline.",
+        "vgi.example_queries": "[{\"description\": \"Drop stop-words from a literal string with per-row auto-detect\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie') AS kept\"}, {\"description\": \"Drop English stop-words from a literal string\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') AS kept\"}, {\"description\": \"Drop stop-words from a literal string with an explicit spaCy model\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie', 'en', 'en_core_web_sm') AS kept\"}]",
+        "vgi.keywords": "[\"stop words model\", \"custom spacy model\", \"remove stopwords\", \"en_core_web_sm\", \"explicit model\", \"content words\", \"text cleaning\"]",
+        "vgi.title": "Strip Stop-Words (Explicit Model)"
+      },
+      "VARCHAR",
+      [
+        "text",
+        "lang"
+      ],
+      [
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22605,
+      [
+        "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') AS kept"
+      ],
+      "CONSISTENT",
+      [
+        "cleaning"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "strip_stopwords",
+      null,
+      "scalar",
+      "Remove stop-words and punctuation with an explicit spaCy model",
+      null,
+      {
+        "vgi.category": "text-cleaning",
+        "vgi.doc_llm": "Drop stop-words and punctuation and return the surviving tokens space-joined, loading a **named** spaCy model rather than the language default.\n\n**When to use:** when a particular model is required -- a larger/transformer model for better tokenization, or a non-default model already installed in the worker.\n\n**Inputs:** a `VARCHAR` text column, an ISO-639 `lang` (`''` ignores it when a model is given), and a `model` name. **Output:** a `VARCHAR` of the kept tokens. NULL/empty text yields NULL. The named model must be installed in the worker's environment or the call errors at load time.",
+        "vgi.doc_md": "# strip_stopwords(text, lang, model)\n\nRemoves stop-words and punctuation using an explicitly named spaCy model -- for instance `en_core_web_sm` for English, or a larger model already installed in the worker.\n\nThe model must be present in the worker's Python environment. When `lang` is empty the model name alone selects the pipeline.",
+        "vgi.example_queries": "[{\"description\": \"Drop stop-words from a literal string with per-row auto-detect\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie') AS kept\"}, {\"description\": \"Drop English stop-words from a literal string\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie', 'en') AS kept\"}, {\"description\": \"Drop stop-words from a literal string with an explicit spaCy model\", \"sql\": \"SELECT nlp.main.strip_stopwords('this is a really great movie', 'en', 'en_core_web_sm') AS kept\"}]",
+        "vgi.keywords": "[\"stop words model\", \"custom spacy model\", \"remove stopwords\", \"en_core_web_sm\", \"explicit model\", \"content words\", \"text cleaning\"]",
+        "vgi.title": "Strip Stop-Words (Explicit Model)"
+      },
+      "VARCHAR",
+      [
+        "text",
+        "lang",
+        "model"
+      ],
+      [
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      false,
+      true,
+      null,
+      22605,
+      [
+        "SELECT nlp.main.strip_stopwords('this is a really great movie', 'en', 'en_core_web_sm') AS kept"
+      ],
+      "CONSISTENT",
+      [
+        "cleaning"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "supported_languages",
+      null,
+      "table",
+      "Languages with a default spaCy pipeline: (lang_code, spacy_model)",
+      null,
+      {
+        "vgi.category": "discovery",
+        "vgi.doc_llm": "A **table function** (no arguments) returning one row per language that has a default spaCy pipeline, so the entity/token/sentence/noun-chunk functions and the `lemmatize` / `strip_stopwords` scalars can process it without naming a model.\n\n**When to use:** discover which ISO-639 codes are valid for the `lang` argument before pinning one, or check whether a detected language (from `detect_lang`) has an installed pipeline. Columns: `lang_code` (the ISO-639 value you pass as `lang`) and `spacy_model` (the default small pipeline that backs it).\n\nNote: `detect_lang` recognizes far more languages (fastText covers 176) than have a spaCy pipeline installed -- this table lists only the latter. The named models must also be present in the worker environment to be loadable.",
+        "vgi.doc_md": "# supported_languages\n\nDiscovery table of every language the worker has a default spaCy pipeline for.\n\n## Columns\n\n- `lang_code` (`VARCHAR`) -- ISO-639 code accepted by the `lang` argument.\n- `spacy_model` (`VARCHAR`) -- the default small spaCy model backing it.\n\nLanguage detection (`detect_lang`) spans 176 languages via fastText, but only the languages listed here can be lemmatized, tokenized, or run through NER without naming a custom model.",
+        "vgi.example_queries": "[{\"description\": \"Count the languages that have a default spaCy pipeline\", \"sql\": \"SELECT count(*) AS n_languages FROM nlp.main.supported_languages()\"}, {\"description\": \"Look up the default spaCy model for English\", \"sql\": \"SELECT spacy_model FROM nlp.main.supported_languages() WHERE lang_code = 'en'\"}]",
+        "vgi.keywords": "[\"supported languages\", \"languages\", \"iso-639\", \"spacy models\", \"language support\", \"capabilities\", \"discovery\", \"which languages\"]",
+        "vgi.result_columns_schema": "[{\"name\": \"lang_code\", \"type\": \"VARCHAR\", \"description\": \"ISO-639 language code accepted by the `lang` argument.\"}, {\"name\": \"spacy_model\", \"type\": \"VARCHAR\", \"description\": \"Default small spaCy pipeline that backs this language.\"}]",
+        "vgi.title": "List Supported Languages"
+      },
+      null,
+      [],
+      [],
+      null,
+      null,
+      null,
+      true,
+      null,
+      22609,
+      [
+        "SELECT count(*) AS n_languages FROM nlp.main.supported_languages()",
+        "SELECT spacy_model FROM nlp.main.supported_languages() WHERE lang_code = 'en'"
+      ],
+      null,
+      [
+        "discovery"
+      ]
+    ],
+    [
+      "nlp",
+      "22595",
+      "main",
+      "tokens",
+      null,
+      "table",
+      "Tokens per text row: (id, token, lemma, pos, tag, is_stop, dep)",
+      null,
+      {
+        "vgi.category": "extraction",
+        "vgi.doc_llm": "Tokenization plus linguistic annotation as a table-in-out function: each input text row explodes into **one row per token**, each carrying its lemma, part-of-speech, fine-grained tag, stop-word flag, and dependency relation from the spaCy pipeline.\n\n**When to use:** linguistic analysis, building token-level features, counting parts of speech, or filtering to content words -- anything that needs the words of a document as queryable rows.\n\n**Input:** a `(SELECT ...)` relation passed positionally; `id := 'col'` names a passthrough key; `text :=`, `lang :=`, `model :=` pick the text column, pin the language, and override the model. **Output:** rows of `(token, lemma, pos, tag, is_stop, dep)` plus the optional id. Output order is not guaranteed -- add `ORDER BY` for determinism.",
+        "vgi.doc_md": "# tokens\n\nTokenizes a text column with spaCy and emits one row per token with rich annotations. Pass the input relation positionally; `id :=` names the join key copied onto every token row, and `text :=`, `lang :=`, `model :=` pick the text column, pin the language, and override the model.\n\nEach row gives the token text, its lemma, coarse and fine POS tags, a stop-word flag, and its dependency label. Filter on `is_stop` or `pos` to isolate content words; use `id :=` to join tokens back to their source document.",
+        "vgi.example_queries": "[{\"description\": \"Explode a literal English document into tokens, projecting its key columns\", \"sql\": \"SELECT token, pos FROM nlp.main.tokens((SELECT 'The quick brown fox jumps.' AS body), lang := 'en')\"}]",
+        "vgi.keywords": "[\"tokenize\", \"tokenization\", \"tokens\", \"part of speech\", \"pos tagging\", \"lemma\", \"dependency parse\", \"stop word flag\", \"spacy\"]",
+        "vgi.result_columns_schema": "[{\"name\": \"token\", \"type\": \"VARCHAR\", \"description\": \"The token text.\"}, {\"name\": \"lemma\", \"type\": \"VARCHAR\", \"description\": \"The token's lemma (dictionary form).\"}, {\"name\": \"pos\", \"type\": \"VARCHAR\", \"description\": \"Coarse universal part-of-speech tag.\"}, {\"name\": \"tag\", \"type\": \"VARCHAR\", \"description\": \"Fine-grained part-of-speech tag.\"}, {\"name\": \"is_stop\", \"type\": \"BOOLEAN\", \"description\": \"Whether the token is a stop-word.\"}, {\"name\": \"dep\", \"type\": \"VARCHAR\", \"description\": \"Syntactic dependency relation.\"}]",
+        "vgi.title": "Tokenize With POS Tags"
+      },
+      null,
+      [
+        "data",
+        "text",
+        "model",
+        "lang",
+        "id"
+      ],
+      [
+        "TABLE",
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR",
+        "VARCHAR"
+      ],
+      null,
+      null,
+      null,
+      true,
+      null,
+      22610,
+      [
+        "SELECT token, pos FROM nlp.main.tokens((SELECT 'The quick brown fox jumps.' AS body), lang := 'en')"
+      ],
+      null,
+      [
+        "tokenization",
+        "pos"
+      ]
+    ]
+  ]
+}

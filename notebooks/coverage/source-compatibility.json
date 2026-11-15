@@ -1,0 +1,42 @@
+{
+  "release": "v0.4.0",
+  "release_commit": "5d84d6990ac4b07540ed60bffd62bc918172aa38",
+  "current_revision": "638dd3037d0757df64fa4cb6795084c57c3780a4",
+  "source_ci": {
+    "url": "https://github.com/Query-farm/vgi-nlp/actions/runs/43580007217",
+    "revision": "638dd3037d0757df64fa4cb6795084c57c3780a4",
+    "conclusion": "success"
+  },
+  "runtime": "Haybarn2.0.0rc11",
+  "launch": "uvx --python 3.13 --from git+https://github.com/Query-farm/vgi-nlp@v0.4.0 vgi-nlp-worker",
+  "source_review": "Current source adds composed SQL examples and related agent/example metadata only. Complete package diff retained/reviewed; compute methods, registrations, schemas, pipeline behavior, entrypoint and root dependencies unchanged. Actual released interface supports current-compatible mapping, not an exact-current execution claim.",
+  "changed_paths": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/release.yml",
+    "CLAUDE.md",
+    "README.md",
+    "test/sql/composed.test",
+    "tests/test_composed.py",
+    "vgi-agent-tests.yaml",
+    "vgi_nlp/composed.py",
+    "vgi_nlp/scalars.py",
+    "vgi_nlp/tables.py",
+    "vgi_nlp/worker.py"
+  ],
+  "root_dependencies_unchanged": true,
+  "scope": "Twelve logical names from16function rows plus supported_languages same-name physical table alias. No views/COPY/authenticated/write objects. All twelve retained in denominator. Eight English-focused narrative surfaces demonstrated; detect_lang, detect_lang_conf, lemmatize and noun_chunks remain uncovered. The24-language registry maps default models, not installed-model inventory. Only release-declared en_core_web_sm3.8.0 and VADER run. Optional fastText downloads disabled and language pinned; no language-ID inference claimed.",
+  "metadata_provenance": "Actual catalog-metadata.json vgi.title/vgi.subtitle.",
+  "resolved_worker_packages": {
+    "vgi-nlp": "0.4.0",
+    "vgi-python": "0.51.1",
+    "vgi-rpc": "0.53.1",
+    "spacy": "3.8.18",
+    "thinc": "8.3.14",
+    "numpy": "2.5.4",
+    "fasttext-predict": "0.9.2.4",
+    "vaderSentiment": "3.3.2",
+    "en-core-web-sm": "3.8.0"
+  },
+  "model_install": "Official en_core_web_sm3.8.0 wheel is a main dependency of the unchanged release, installed in the isolated uvx worker environment. No model or transitive --with override.",
+  "schema_scope": "Table-in-out DESCRIBE exports bind INTEGER id passthrough plus actual emitted fields. Actual passthrough type depends on input schema; id omitted when not requested. Full argument exports retain defaults and input-table metadata."
+}

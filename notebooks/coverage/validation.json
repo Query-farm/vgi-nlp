@@ -1,0 +1,798 @@
+{
+  "schema_version": 1,
+  "status": "met",
+  "meets_target": true,
+  "catalogs": {
+    "released": {
+      "catalog_status": "verified",
+      "revision": "v0.4.0",
+      "catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9",
+      "collection_reconciled": true,
+      "denominator": 12,
+      "observed_objects": 12,
+      "required": 6,
+      "verified_count": 8,
+      "candidate_count": 0,
+      "fraction": 0.6666666666666666,
+      "meets_target": true,
+      "exact_runtime_count": 8,
+      "runtime_revisions": [
+        "v0.4.0"
+      ],
+      "covered": [
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "entities"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "normalize"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentences"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentiment"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentiment_label"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "strip_stopwords"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "supported_languages"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "tokens"
+        }
+      ],
+      "uncovered": [
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "detect_lang"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "detect_lang_conf"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "lemmatize"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "noun_chunks"
+        }
+      ],
+      "objects": [
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "detect_lang",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "detect_lang(text VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "detect_lang_conf",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "detect_lang_conf(text VARCHAR) -> FLOAT"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "entities",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "entities(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, ent_text VARCHAR, label VARCHAR, start_char INTEGER, end_char INTEGER) [bound example: INTEGER id passthrough]"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "lemmatize",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "lemmatize(text VARCHAR) -> VARCHAR",
+            "lemmatize(text VARCHAR, lang VARCHAR) -> VARCHAR",
+            "lemmatize(text VARCHAR, lang VARCHAR, model VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "normalize",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "normalize(text VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "noun_chunks",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "noun_chunks(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, chunk VARCHAR, root VARCHAR) [bound example: INTEGER id passthrough]"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentences",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "sentences(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, sent_index INTEGER, sentence VARCHAR) [bound example: INTEGER id passthrough]"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentiment",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "sentiment(text VARCHAR) -> FLOAT"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentiment_label",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "sentiment_label(text VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "strip_stopwords",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "strip_stopwords(text VARCHAR) -> VARCHAR",
+            "strip_stopwords(text VARCHAR, lang VARCHAR) -> VARCHAR",
+            "strip_stopwords(text VARCHAR, lang VARCHAR, model VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "supported_languages",
+          "kinds": [
+            "function",
+            "table"
+          ],
+          "signatures": [
+            "TABLE(lang_code VARCHAR, spacy_model VARCHAR)",
+            "supported_languages() -> TABLE(lang_code VARCHAR, spacy_model VARCHAR)"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "tokens",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "tokens(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, token VARCHAR, lemma VARCHAR, pos VARCHAR, tag VARCHAR, is_stop BOOLEAN, dep VARCHAR) [bound example: INTEGER id passthrough]"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        }
+      ],
+      "issues": []
+    },
+    "current": {
+      "catalog_status": "verified",
+      "revision": "638dd3037d0757df64fa4cb6795084c57c3780a4",
+      "catalog_sha256": "024dc18ac51fa8cc0e93f321fcc08b010dd725be0c89f601ad23d0f4047d2efe",
+      "collection_reconciled": true,
+      "denominator": 12,
+      "observed_objects": 12,
+      "required": 6,
+      "verified_count": 8,
+      "candidate_count": 0,
+      "fraction": 0.6666666666666666,
+      "meets_target": true,
+      "exact_runtime_count": 0,
+      "runtime_revisions": [
+        "v0.4.0"
+      ],
+      "covered": [
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "entities"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "normalize"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentences"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentiment"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentiment_label"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "strip_stopwords"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "supported_languages"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "tokens"
+        }
+      ],
+      "uncovered": [
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "detect_lang"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "detect_lang_conf"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "lemmatize"
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "noun_chunks"
+        }
+      ],
+      "objects": [
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "detect_lang",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "detect_lang(text VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "detect_lang_conf",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "detect_lang_conf(text VARCHAR) -> FLOAT"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "entities",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "entities(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, ent_text VARCHAR, label VARCHAR, start_char INTEGER, end_char INTEGER) [bound example: INTEGER id passthrough]"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "lemmatize",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "lemmatize(text VARCHAR) -> VARCHAR",
+            "lemmatize(text VARCHAR, lang VARCHAR) -> VARCHAR",
+            "lemmatize(text VARCHAR, lang VARCHAR, model VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "normalize",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "normalize(text VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "noun_chunks",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "noun_chunks(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, chunk VARCHAR, root VARCHAR) [bound example: INTEGER id passthrough]"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentences",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "sentences(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, sent_index INTEGER, sentence VARCHAR) [bound example: INTEGER id passthrough]"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentiment",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "sentiment(text VARCHAR) -> FLOAT"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "sentiment_label",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "sentiment_label(text VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "strip_stopwords",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "strip_stopwords(text VARCHAR) -> VARCHAR",
+            "strip_stopwords(text VARCHAR, lang VARCHAR) -> VARCHAR",
+            "strip_stopwords(text VARCHAR, lang VARCHAR, model VARCHAR) -> VARCHAR"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "supported_languages",
+          "kinds": [
+            "function",
+            "table"
+          ],
+          "signatures": [
+            "TABLE(lang_code VARCHAR, spacy_model VARCHAR)",
+            "supported_languages() -> TABLE(lang_code VARCHAR, spacy_model VARCHAR)"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        },
+        {
+          "schema": [
+            "main"
+          ],
+          "name": "tokens",
+          "kinds": [
+            "function"
+          ],
+          "signatures": [
+            "tokens(data TABLE, text VARCHAR, model VARCHAR, lang VARCHAR, id VARCHAR) -> TABLE(id INTEGER, token VARCHAR, lemma VARCHAR, pos VARCHAR, tag VARCHAR, is_stop BOOLEAN, dep VARCHAR) [bound example: INTEGER id passthrough]"
+          ],
+          "access": [
+            "read"
+          ],
+          "authentication": [
+            "none"
+          ]
+        }
+      ],
+      "issues": []
+    }
+  },
+  "interface_drift": {
+    "known": true,
+    "current_only": [],
+    "released_only": [],
+    "changed": []
+  },
+  "notebooks": {
+    "01_audit_cleaning_and_sentiment.ipynb": {
+      "verified": true,
+      "issues": []
+    },
+    "02_trace_extracted_spans_to_text.ipynb": {
+      "verified": true,
+      "issues": []
+    }
+  },
+  "examples": [
+    {
+      "status": "verified",
+      "issues": [],
+      "verified_catalogs": [
+        "released",
+        "current"
+      ],
+      "object": {
+        "schema": [
+          "main"
+        ],
+        "name": "supported_languages"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "runtime_revision": "v0.4.0",
+      "runtime_catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9"
+    },
+    {
+      "status": "verified",
+      "issues": [],
+      "verified_catalogs": [
+        "released",
+        "current"
+      ],
+      "object": {
+        "schema": [
+          "main"
+        ],
+        "name": "normalize"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "runtime_revision": "v0.4.0",
+      "runtime_catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9"
+    },
+    {
+      "status": "verified",
+      "issues": [],
+      "verified_catalogs": [
+        "released",
+        "current"
+      ],
+      "object": {
+        "schema": [
+          "main"
+        ],
+        "name": "strip_stopwords"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "runtime_revision": "v0.4.0",
+      "runtime_catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9"
+    },
+    {
+      "status": "verified",
+      "issues": [],
+      "verified_catalogs": [
+        "released",
+        "current"
+      ],
+      "object": {
+        "schema": [
+          "main"
+        ],
+        "name": "sentiment"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "runtime_revision": "v0.4.0",
+      "runtime_catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9"
+    },
+    {
+      "status": "verified",
+      "issues": [],
+      "verified_catalogs": [
+        "released",
+        "current"
+      ],
+      "object": {
+        "schema": [
+          "main"
+        ],
+        "name": "sentiment_label"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "runtime_revision": "v0.4.0",
+      "runtime_catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9"
+    },
+    {
+      "status": "verified",
+      "issues": [],
+      "verified_catalogs": [
+        "released",
+        "current"
+      ],
+      "object": {
+        "schema": [
+          "main"
+        ],
+        "name": "tokens"
+      },
+      "notebook": "01_audit_cleaning_and_sentiment.ipynb",
+      "runtime_revision": "v0.4.0",
+      "runtime_catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9"
+    },
+    {
+      "status": "verified",
+      "issues": [],
+      "verified_catalogs": [
+        "released",
+        "current"
+      ],
+      "object": {
+        "schema": [
+          "main"
+        ],
+        "name": "sentences"
+      },
+      "notebook": "02_trace_extracted_spans_to_text.ipynb",
+      "runtime_revision": "v0.4.0",
+      "runtime_catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9"
+    },
+    {
+      "status": "verified",
+      "issues": [],
+      "verified_catalogs": [
+        "released",
+        "current"
+      ],
+      "object": {
+        "schema": [
+          "main"
+        ],
+        "name": "entities"
+      },
+      "notebook": "02_trace_extracted_spans_to_text.ipynb",
+      "runtime_revision": "v0.4.0",
+      "runtime_catalog_sha256": "357357272b1a53002e799a632ccc32246b3dd909bb08257b9528a98e1ed75ce9"
+    }
+  ],
+  "issues": []
+}

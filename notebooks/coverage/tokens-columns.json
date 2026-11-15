@@ -1,0 +1,70 @@
+{
+  "query": "DESCRIBE SELECT * FROM nlp.main.tokens((SELECT 1 AS id,'Apple Inc. hired a person in Paris.' AS body),id:='id',text:='body',lang:='en',model:='en_core_web_sm')",
+  "captured_at": "2026-11-15T01:08:52.107452+00:00",
+  "columns": [
+    "column_name",
+    "column_type",
+    "null",
+    "key",
+    "default",
+    "extra"
+  ],
+  "rows": [
+    [
+      "id",
+      "INTEGER",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "token",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "lemma",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "pos",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "tag",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "is_stop",
+      "BOOLEAN",
+      "YES",
+      null,
+      null,
+      null
+    ],
+    [
+      "dep",
+      "VARCHAR",
+      "YES",
+      null,
+      null,
+      null
+    ]
+  ]
+}
