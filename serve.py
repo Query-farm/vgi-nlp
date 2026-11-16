@@ -6,9 +6,6 @@
 #     "fasttext-predict>=0.9.2.4",
 #     "vaderSentiment",
 # ]
-#
-# [tool.uv.sources]
-# vgi-python = { path = "../vgi-python" }
 # ///
 """HTTP entrypoint for the NLP worker.
 
