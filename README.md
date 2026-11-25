@@ -17,7 +17,7 @@ lexicon sentiment — all callable as SQL scalar and table functions. Built on
 
 ```sql
 INSTALL vgi FROM community; LOAD vgi;
-ATTACH 'nlp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.4.1 vgi-nlp-worker');
+ATTACH 'nlp' (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.5.0 vgi-nlp-worker');
 
 SELECT nlp.detect_lang(review) AS lang, count(*) FROM reviews GROUP BY 1;
 SELECT id, nlp.sentiment(body) AS score FROM reviews;
@@ -30,6 +30,8 @@ SELECT * FROM nlp.entities((SELECT id, body FROM articles), id := 'id');
 > orders of magnitude cheaper and faster than a per-row LLM call. This is the
 > bulk-text-enrichment primitive that sits *upstream* of the LLM workers.
 
+vgi-nlp 0.5.0 speaks VGI protocol 3.4, so it needs Haybarn 2.0.1 or newer (Haybarn 2.0.0 loads a 3.3 `vgi` extension that cannot attach it).
+
 ## Quick start
 
 The worker isn't on PyPI; [uv](https://docs.astral.sh/uv/) runs it straight from a tagged release on GitHub. `uvx` builds an isolated environment on the first ATTACH and reuses it afterwards:
@@ -38,7 +40,7 @@ The worker isn't on PyPI; [uv](https://docs.astral.sh/uv/) runs it straight from
 INSTALL vgi FROM community;
 LOAD vgi;
 
-ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.4.1 vgi-nlp-worker');
+ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'uvx --from git+https://github.com/Query-farm/vgi-nlp@v0.5.0 vgi-nlp-worker');
 
 -- Detect the language of a French string.
 SELECT nlp.main.detect_lang('Bonjour tout le monde') AS lang;
@@ -49,14 +51,14 @@ SELECT nlp.main.sentiment('I absolutely love this product!') AS score;
 
 The spaCy pipelines and the fastText language-ID model are loaded lazily; see [Models](#models) for what to install.
 
-Change `@v0.4.1` to move to a newer release.
+Change `@v0.5.0` to move to a newer release.
 
 ### Other ways to run it
 
 - **Docker** (the image bundles the worker and its dependencies):
 
   ```sql
-  ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-nlp:0.4.1');
+  ATTACH 'nlp' AS nlp (TYPE vgi, LOCATION 'docker://ghcr.io/query-farm/vgi-nlp:0.5.0');
   ```
 
 - **From a local checkout** (`git clone https://github.com/Query-farm/vgi-nlp`), point `LOCATION` at `uv run --project /path/to/vgi-nlp vgi-nlp-worker`.
@@ -241,9 +243,9 @@ Two test layers:
 - **SQL end-to-end** (`test/sql/*.test`) run the worker as a real subprocess
   under DuckDB's sqllogictest runner ([`haybarn-unittest`](https://pypi.org/project/haybarn-unittest/)),
   exercising the full `ATTACH` → SQL path the way a user would. Install the
-  runner with `uv tool install --prerelease allow 'haybarn-unittest>=2.0.0rc11,<2.1'`
-  (binary lands in `~/.local/bin`; haybarn 2.0 is required, since the worker speaks VGI
-  protocol vgi.v3 / 3.3),
+  runner with `uv tool install --prerelease allow 'haybarn-unittest>=2.0.1rc3,<2.1'`
+  (binary lands in `~/.local/bin`; haybarn 2.0.1 is required, since the worker speaks VGI
+  protocol vgi.v3 / 3.4),
   then `make test-sql`. The worker command is exported as `VGI_NLP_WORKER` and the
   `.test` files `LOAD vgi` + `ATTACH 'nlp' (TYPE vgi, LOCATION '{VGI_NLP_WORKER}')`.
 
